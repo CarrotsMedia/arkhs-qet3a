@@ -1,0 +1,10 @@
+node_modules/
+venv/
+Lib/
+Include/
+Scripts/
+__pycache__/
+output/*.json
+price-comparison/
+*.pyc
+*.log
