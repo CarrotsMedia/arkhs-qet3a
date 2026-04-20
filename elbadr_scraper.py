@@ -123,7 +123,8 @@ class ElBadrScraper:
             # في موقع البدر عادة ما يكتبون "Out Of Stock" كزرار لو خلصان
             cart_btn = await card.query_selector(".cart-group .btn-cart .btn-text")
             btn_text = (await cart_btn.inner_text()).strip().lower() if cart_btn else ""
-            if "out of stock" in btn_text or btn_text == "":
+            card_text = (await card.inner_text()).lower()
+            if "out of stock" in btn_text or btn_text == "" or "coming soon" in card_text or price == 1.0:
                 availability = "out_of_stock"
             else:
                 availability = "in_stock"

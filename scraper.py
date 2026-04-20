@@ -169,7 +169,11 @@ async def parse_product_card(card, category: str) -> Optional[Product]:
 
         # الـ availability
         oos_el = await card.query_selector(".out-of-stock, .sold-out, [class*='unavailable']")
-        availability = "out_of_stock" if oos_el else "in_stock"
+        card_text = (await card.inner_text()).lower()
+        if oos_el or "coming soon" in card_text or "out of stock" in card_text or price == 1.0:
+            availability = "out_of_stock"
+        else:
+            availability = "in_stock"
 
         # Brand من الاسم (أول كلمة عادةً)
         brand = name.split()[0] if name else "Unknown"
