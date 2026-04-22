@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS stores (
 -- Add base stores
 INSERT INTO stores (slug, name, website) VALUES
     ('sigma', 'Sigma Computer', 'https://sigma-computer.com'),
-    ('badr-group', 'البدر جروب', 'https://badrgroup.com')
+    ('badr-group', 'البدر جروب', 'https://badrgroup.com'),
+    ('compumarts', 'Compumarts', 'https://www.compumarts.com')
 ON CONFLICT (slug) DO NOTHING;
 
 -- ──────────────────────────────────────────────
@@ -202,6 +203,11 @@ def load_scraper_output(json_file: str, store_slug: str, db_path: str = "pc_part
 
         # Upsert Price
         if p.get("price_egp"):
+            # Some scrapers return the URL in specs, others directly in 'product_url'
+            url = p.get("product_url")
+            if not url and p.get("specs") and "url" in p.get("specs"):
+                url = p.get("specs").get("url")
+
             cur.execute(UPSERT_PRICE_SQL, (
                 product_id,
                 store_id,
@@ -209,7 +215,7 @@ def load_scraper_output(json_file: str, store_slug: str, db_path: str = "pc_part
                 p.get("original_price_egp"),
                 p.get("discount_pct"),
                 p.get("availability", "in_stock"),
-                p.get("specs", {}).get("url") if p.get("specs") and "url" in p.get("specs") else None,
+                url,
             ))
             
             # Save Price History
@@ -234,3 +240,7 @@ if __name__ == "__main__":
     elbadr_json = Path("output/elbadr_search_4070.json")
     if elbadr_json.exists():
         load_scraper_output(str(elbadr_json), "badr-group")
+        
+    compumarts_json = Path("output/compumarts_all_products.json")
+    if compumarts_json.exists():
+        load_scraper_output(str(compumarts_json), "compumarts")

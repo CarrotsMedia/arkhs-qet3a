@@ -28,16 +28,12 @@ BASE_URL = "https://sigma-computer.com/en"
 
 # categories على الموقع
 CATEGORIES = {
-    "processors":    "/category/processors",
-    "motherboards":  "/category/motherboards",
-    "ram":           "/category/ram",
-    "gpu":           "/category/graphic-cards",
-    "ssd":           "/category/solid-state-drives",
-    "hdd":           "/category/hard-drives",
-    "psu":           "/category/power-supplies",
-    "cases":         "/category/cases",
-    "cooling":       "/category/cpu-coolers",
-    "monitors":      "/category/monitors",
+    "cat_1": "/category/a11ffded-e866-489d-bb23-794a24f2392b",
+    "cat_2": "/category/9f503a01-79d7-4a25-b3f3-63b0fd5b3094",
+    "cat_3": "/category/9f5039ed-8dd4-4a9b-a8ce-caf20ed29436",
+    "cat_4": "/category/9f503b88-167a-4e18-bdf0-5bb94c7bcdd0",
+    "laptops": "/category/9f5039de-5c80-46f3-9fe4-6e8f94189b8c",
+    "cat_6": "/category/9f503a2c-77cc-48bf-a5c4-76030655fce2"
 }
 
 OUTPUT_DIR = Path("output")
@@ -242,7 +238,7 @@ async def scrape_product_details(page: Page, product: Product) -> Product:
 async def scrape_category(
     page: Page,
     category_name: str,
-    max_pages: int = 10,
+    max_pages: int = 50,
     fetch_details: bool = False,
 ) -> list[Product]:
     """
@@ -276,7 +272,8 @@ async def scrape_category(
             ".product-item, .product-card, "
             "li.product, article.product, "
             ".woocommerce-loop-product, "
-            "[class*='product-grid'] .item"
+            "[class*='product-grid'] .item, "
+            "div.group.relative.bg-white"
         )
 
         if not cards:
@@ -311,7 +308,7 @@ async def scrape_category(
     return products
 
 
-async def search_products(page: Page, query: str, max_pages: int = 5) -> list[Product]:
+async def search_products(page: Page, query: str, max_pages: int = 50) -> list[Product]:
     """بيبحث في الموقع ويرجع النتايج"""
     products: list[Product] = []
     page_num = 1

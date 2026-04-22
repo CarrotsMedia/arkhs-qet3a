@@ -176,11 +176,11 @@ class ElBadrScraper:
 
             page_num += 1
 
-    async def search_products(self, page: Page, query: str, max_pages: int = 5):
+    async def search_products(self, page: Page, query: str, max_pages: int = 50):
         search_url = f"{BASE_URL}/index.php?route=product/search&search={query.replace(' ', '%20')}"
         await self.scrape_url(page, search_url, "search", max_pages)
 
-    async def scrape_category(self, page: Page, category_key: str, max_pages: int = 5):
+    async def scrape_category(self, page: Page, category_key: str, max_pages: int = 50):
         slug = CATEGORIES.get(category_key)
         if not slug:
             return
@@ -204,7 +204,7 @@ async def main():
     parser = argparse.ArgumentParser(description="ElBadr Group Web Scraper")
     parser.add_argument("--search", type=str, help="Search for a specific product")
     parser.add_argument("--category", type=str, choices=list(CATEGORIES.keys()), help="Scrape entirely a category")
-    parser.add_argument("--pages", type=int, default=5, help="Max pages to scrape per action")
+    parser.add_argument("--pages", type=int, default=50, help="Max pages to scrape per action")
     parser.add_argument("--all", action="store_true", help="Scrape all main categories")
 
     args = parser.parse_args()
