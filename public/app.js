@@ -23,6 +23,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const inStockToggle = document.getElementById('inStockToggle');
     const inStockWrapper = document.getElementById('inStockWrapper');
 
+    // Category elements
+    const categoriesSection = document.getElementById('categoriesSection');
+    const categoriesGrid = document.getElementById('categoriesGrid');
+    const backToCategories = document.getElementById('backToCategories');
+    const backToCategoriesBtn = document.getElementById('backToCategoriesBtn');
+    const currentCategoryName = document.getElementById('currentCategoryName');
+
+    let isBrowsingCategory = false;
+    let currentBrowseCategory = '';
+    let currentBrowsePage = 1;
+
     inStockToggle.addEventListener('change', () => {
         if (fetchedProducts.length === 0) return;
         applyFiltersAndRender();
@@ -70,6 +81,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }));
             fetchedProducts = formatted;
             isShowingSuggestions = true;
+            isBrowsingCategory = false;
+            // Show categories, hide back bar
+            categoriesSection.style.display = '';
+            backToCategories.style.display = 'none';
             applyFiltersAndRender();
             renderPagination(1, 1); // Hide pagination for suggestions
         } catch (error) {
@@ -102,10 +117,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         currentQuery = query;
         currentPage = page;
+        isBrowsingCategory = false;
 
         productsGrid.innerHTML = '';
         inStockWrapper.style.display = 'none';
         paginationContainer.style.display = 'none';
+        categoriesSection.style.display = 'none';
+        backToCategories.style.display = 'none';
         resultText.textContent = `Searching live for "${query}" (Page ${page})…`;
         loader.style.display = 'block';
         searchBtn.disabled = true;
@@ -490,13 +508,144 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Escape') closeModal();
     });
 
+    // ───── Categories: Load & Render ─────
+    const fetchCategories = async () => {
+        try {
+            const response = await fetch('/api/categories');
+            const data = await response.json();
+            renderCategories(data);
+        } catch (error) {
+            console.error('Error fetching categories:', error);
+            categoriesSection.style.display = 'none';
+        }
+    };
+
+    const renderCategories = (categories) => {
+        categoriesGrid.innerHTML = '';
+        if (!categories || categories.length === 0) {
+            categoriesSection.style.display = 'none';
+            return;
+        }
+
+        categories.forEach((cat, index) => {
+            const card = document.createElement('div');
+            card.className = 'category-card';
+            card.style.animationDelay = `${index * 0.04}s`;
+            card.innerHTML = `
+                <span class="category-icon">${cat.icon}</span>
+                <span class="category-name">${cat.name}</span>
+                <span class="category-count">${cat.count.toLocaleString()} products</span>
+            `;
+            card.addEventListener('click', () => browseCategory(cat.name, cat.icon));
+            categoriesGrid.appendChild(card);
+        });
+    };
+
+    const browseCategory = async (categoryName, icon, page = 1) => {
+        currentBrowseCategory = categoryName;
+        currentBrowsePage = page;
+        isBrowsingCategory = true;
+        isShowingSuggestions = false;
+
+        // UI state
+        categoriesSection.style.display = 'none';
+        backToCategories.style.display = 'flex';
+        currentCategoryName.textContent = `${icon || '📁'} ${categoryName}`;
+        productsGrid.innerHTML = '';
+        inStockWrapper.style.display = 'none';
+        paginationContainer.style.display = 'none';
+        resultText.textContent = `Loading ${categoryName}…`;
+        loader.style.display = 'block';
+
+        try {
+            const response = await fetch(`/api/browse?category=${encodeURIComponent(categoryName)}&page=${page}&limit=52`);
+            const data = await response.json();
+
+            loader.style.display = 'none';
+
+            if (!data.products || data.count === 0) {
+                resultText.textContent = `No products in "${categoryName}"`;
+                productsGrid.innerHTML = `
+                    <div class="empty-state">
+                        <span class="emoji">📭</span>
+                        <p>No products found in this category</p>
+                    </div>`;
+                return;
+            }
+
+            totalSearchCount = data.count || 0;
+            fetchedProducts = data.products || [];
+            inStockWrapper.style.display = 'inline-flex';
+            resultText.textContent = `${icon || '📁'} ${categoryName} — ${data.count} products`;
+            applyFiltersAndRender();
+
+            // Render browse pagination
+            if (data.totalPages > 1) {
+                renderBrowsePagination(data.page, data.totalPages, categoryName, icon);
+            }
+        } catch (error) {
+            console.error('Error browsing category:', error);
+            loader.style.display = 'none';
+            productsGrid.innerHTML = `
+                <div class="empty-state">
+                    <span class="emoji">⚠️</span>
+                    <p>Error loading category. Please try again.</p>
+                </div>`;
+        }
+    };
+
+    const renderBrowsePagination = (page, totalPages, categoryName, icon) => {
+        paginationContainer.style.display = 'flex';
+        paginationContainer.innerHTML = '';
+
+        const prevBtn = document.createElement('button');
+        prevBtn.textContent = '← Previous';
+        prevBtn.className = 'pagination-btn';
+        prevBtn.disabled = page <= 1;
+        prevBtn.addEventListener('click', () => {
+            browseCategory(categoryName, icon, page - 1);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+
+        const pageInfo = document.createElement('span');
+        pageInfo.className = 'pagination-info';
+        pageInfo.textContent = `Page ${page} of ${totalPages}`;
+
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = 'Next →';
+        nextBtn.className = 'pagination-btn';
+        nextBtn.disabled = page >= totalPages;
+        nextBtn.addEventListener('click', () => {
+            browseCategory(categoryName, icon, page + 1);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+
+        paginationContainer.appendChild(prevBtn);
+        paginationContainer.appendChild(pageInfo);
+        paginationContainer.appendChild(nextBtn);
+    };
+
+    // Back to categories button
+    backToCategoriesBtn.addEventListener('click', () => {
+        isBrowsingCategory = false;
+        backToCategories.style.display = 'none';
+        categoriesSection.style.display = '';
+        productsGrid.innerHTML = '';
+        paginationContainer.style.display = 'none';
+        inStockWrapper.style.display = 'none';
+        resultText.textContent = 'Popular Suggestions';
+        searchInput.value = '';
+        fetchSuggestions();
+    });
+
     // ───── Event Listeners ─────
     searchBtn.addEventListener('click', () => fetchLiveSearch(searchInput.value, 1));
     searchInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') fetchLiveSearch(searchInput.value, 1);
     });
 
-    // Start with suggestions and stats
+    // Start with categories, suggestions and stats
+    fetchCategories();
     fetchSuggestions();
     fetchStats();
 });

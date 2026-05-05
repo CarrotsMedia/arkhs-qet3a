@@ -48,6 +48,173 @@ cron.schedule('0 3 * * *', () => {
 });
 
 // ═══════════════════════════════════════════════════
+// Category Mapping (normalize messy DB categories)
+// ═══════════════════════════════════════════════════
+
+const CATEGORY_MAP = {
+    // Laptops
+    'GAMING LAPTOP': 'Laptops',
+    'CONSUMER LAPTOP': 'Laptops',
+    'USED LAPTOP': 'Laptops',
+    'laptops': 'Laptops',
+    'Entry & Mid Gaming Laptop': 'Laptops',
+    // Graphics Cards
+    'GRAPHIC CARDS': 'Graphics Cards',
+    'gpu': 'Graphics Cards',
+    'GRAPHIC CARD HOLDER': 'Graphics Cards',
+    // Processors
+    'Computer Processors': 'Processors',
+    'processors': 'Processors',
+    'Ryzen 3000 Series (Zen 2)': 'Processors',
+    'Ryzen 5000 Series (Zen 3)': 'Processors',
+    'Ryzen 9000 Series (Zen 5)': 'Processors',
+    // Motherboards
+    'Motherboards': 'Motherboards',
+    'motherboards': 'Motherboards',
+    // RAM & Memory
+    'RAM': 'RAM & Memory',
+    'Memory Cards': 'RAM & Memory',
+    // Storage
+    'storage': 'Storage',
+    'SSD': 'Storage',
+    'External Hard': 'Storage',
+    'HDD': 'Storage',
+    'USB Flash Drives': 'Storage',
+    'SSD Housing': 'Storage',
+    // Cases
+    'cases': 'Cases',
+    'COMPUTER CASE': 'Cases',
+    'CASE Accessories': 'Cases',
+    // Power Supplies
+    'Computer Power Supplies': 'Power Supplies',
+    'psu': 'Power Supplies',
+    'Power Supply': 'Power Supplies',
+    'UPS': 'Power Supplies',
+    'Power Strip': 'Power Supplies',
+    'Power Inverter': 'Power Supplies',
+    'Power Station': 'Power Supplies',
+    // Cooling
+    'coolers': 'Cooling',
+    'Liquid Cooler': 'Cooling',
+    'AIR COOLER': 'Cooling',
+    'COMPUTER FAN': 'Cooling',
+    'Cooling Kit': 'Cooling',
+    'THERMAL PASTE': 'Cooling',
+    'Thermal pad': 'Cooling',
+    'Thermal Pad': 'Cooling',
+    'Contact Frame': 'Cooling',
+    'CPU Contact Frame': 'Cooling',
+    'liq': 'Cooling',
+    // Monitors
+    'Monitors': 'Monitors',
+    'monitors': 'Monitors',
+    'Gaming Monitor': 'Monitors',
+    'Monitor Arm': 'Monitors',
+    'Monitor Mount': 'Monitors',
+    'mount': 'Monitors',
+    // Keyboards & Mice
+    'Keyboards': 'Keyboards & Mice',
+    'Keyboard (Office/Mechanical/Gaming)': 'Keyboards & Mice',
+    'Mouse': 'Keyboards & Mice',
+    'MOUSE PAD': 'Keyboards & Mice',
+    'Wrist Rests': 'Keyboards & Mice',
+    // Audio
+    'Headphones': 'Audio',
+    'SPEAKERS': 'Audio',
+    'Earphone': 'Audio',
+    'EARBUDS': 'Audio',
+    'Headset': 'Audio',
+    'Headsets (Gaming/Wireless/Studio)': 'Audio',
+    'HEADPHONE STAND': 'Audio',
+    'Microphones': 'Audio',
+    'MIC STAND': 'Audio',
+    'MIC ARM': 'Audio',
+    // Networking
+    'ROUTERS': 'Networking',
+    'SWITCHES': 'Networking',
+    'Network': 'Networking',
+    'PCI ADAPTERS': 'Networking',
+    'USB ADAPTERS': 'Networking',
+    'MIFI': 'Networking',
+    // Gaming Accessories
+    'Game Controllers': 'Gaming',
+    'Gaming Chairs': 'Gaming',
+    'Racing Wheel': 'Gaming',
+    'gaming controller': 'Gaming',
+    'Desks': 'Gaming',
+    'Stream Deck': 'Gaming',
+    'Handheld': 'Gaming',
+    'PlayStation': 'Gaming',
+    'Video Game Console Accessories': 'Gaming',
+    // Cables & Adapters
+    'Cables & Converters': 'Cables & Adapters',
+    'Chargers': 'Cables & Adapters',
+    'Desktop Charger': 'Cables & Adapters',
+    'Car charger': 'Cables & Adapters',
+    'Power Bank': 'Cables & Adapters',
+    // Cameras & Streaming
+    'Webcams': 'Cameras & Streaming',
+    'HD Cameras': 'Cameras & Streaming',
+    'Wireless Cameras': 'Cameras & Streaming',
+    'IP Cameras': 'Cameras & Streaming',
+    'Capture Card': 'Cameras & Streaming',
+    'Green Screen': 'Cameras & Streaming',
+    'Ring Light': 'Cameras & Streaming',
+    'LIGHT STRIP': 'Cameras & Streaming',
+    'PROJECTOR': 'Cameras & Streaming',
+    'NVR': 'Cameras & Streaming',
+    // Bundles
+    'PC Bundles': 'PC Bundles',
+    'Accessory Bundles': 'PC Bundles',
+    'Pre-Build PC': 'PC Bundles',
+    'USED PC': 'PC Bundles',
+    'All-in-One PCs': 'PC Bundles',
+    // Laptop Accessories
+    'Laptop Bags': 'Laptop Accessories',
+    'Laptop Battery': 'Laptop Accessories',
+    'STAND LAPTOP': 'Laptop Accessories',
+    'Cooling Pad': 'Laptop Accessories',
+    'Screen Protectors': 'Laptop Accessories',
+};
+
+const CATEGORY_ICONS = {
+    'Laptops': '💻',
+    'Graphics Cards': '🎮',
+    'Processors': '⚡',
+    'Motherboards': '🔧',
+    'RAM & Memory': '🧩',
+    'Storage': '💾',
+    'Cases': '🖥️',
+    'Power Supplies': '🔌',
+    'Cooling': '❄️',
+    'Monitors': '🖥️',
+    'Keyboards & Mice': '⌨️',
+    'Audio': '🎧',
+    'Networking': '🌐',
+    'Gaming': '🕹️',
+    'Cables & Adapters': '🔗',
+    'Cameras & Streaming': '📷',
+    'PC Bundles': '📦',
+    'Laptop Accessories': '🎒',
+    'Other': '📎',
+};
+
+// Get normalized category for a raw DB category
+function getNormalizedCategory(rawCategory) {
+    if (!rawCategory || rawCategory.trim() === '') return 'Other';
+    return CATEGORY_MAP[rawCategory] || CATEGORY_MAP[rawCategory.trim()] || 'Other';
+}
+
+// Build reverse map: normalized -> list of raw categories
+function getRawCategories(normalizedName) {
+    const raws = [];
+    for (const [raw, norm] of Object.entries(CATEGORY_MAP)) {
+        if (norm === normalizedName) raws.push(raw);
+    }
+    return raws;
+}
+
+// ═══════════════════════════════════════════════════
 // Helpers
 // ═══════════════════════════════════════════════════
 
@@ -201,6 +368,89 @@ app.get('/api/search', (req, res) => {
         });
     } catch (err) {
         console.error('Search error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/categories — list all normalized categories with counts
+app.get('/api/categories', (req, res) => {
+    try {
+        const rows = db.prepare(`
+            SELECT category, COUNT(*) as cnt
+            FROM products
+            WHERE category IS NOT NULL AND category != ''
+            GROUP BY category
+        `).all();
+
+        // Aggregate into normalized categories
+        const catCounts = {};
+        for (const row of rows) {
+            const norm = getNormalizedCategory(row.category);
+            catCounts[norm] = (catCounts[norm] || 0) + row.cnt;
+        }
+
+        // Build response array sorted by count desc
+        const categories = Object.entries(catCounts)
+            .map(([name, count]) => ({
+                name,
+                count,
+                icon: CATEGORY_ICONS[name] || '📎'
+            }))
+            .sort((a, b) => b.count - a.count);
+
+        res.json(categories);
+    } catch (err) {
+        console.error('Categories error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/browse?category=Laptops&page=1&limit=52
+app.get('/api/browse', (req, res) => {
+    const categoryName = req.query.category;
+    if (!categoryName) {
+        return res.status(400).json({ error: 'Category is required' });
+    }
+
+    try {
+        const rawCats = getRawCategories(categoryName);
+        // If no mapping found, try raw match
+        const catsToSearch = rawCats.length > 0 ? rawCats : [categoryName];
+
+        const placeholders = catsToSearch.map(() => '?').join(',');
+        const sql = `
+            SELECT p.id as product_id, p.name, p.image_url,
+                   pr.price_egp, pr.availability, pr.product_url,
+                   s.name as store_name, s.slug as store_slug
+            FROM products p
+            LEFT JOIN prices pr ON pr.product_id = p.id
+            LEFT JOIN stores s ON pr.store_id = s.id
+            WHERE p.category IN (${placeholders})
+            ORDER BY p.id
+            LIMIT 2000
+        `;
+
+        const rows = db.prepare(sql).all(...catsToSearch);
+        const unified = formatProducts(rows);
+        const productsWithOffers = unified.filter(p => p.offers && p.offers.length > 0);
+
+        // Pagination
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 52;
+        const totalItems = productsWithOffers.length;
+        const totalPages = Math.ceil(totalItems / limit);
+        const offset = (page - 1) * limit;
+        const paginatedProducts = productsWithOffers.slice(offset, offset + limit);
+
+        res.json({
+            category: categoryName,
+            count: totalItems,
+            page,
+            totalPages,
+            products: paginatedProducts
+        });
+    } catch (err) {
+        console.error('Browse error:', err);
         res.status(500).json({ error: err.message });
     }
 });

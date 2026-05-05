@@ -4,8 +4,13 @@ Lib/
 Include/
 Scripts/
 __pycache__/
-output/*.json
+output/
 price-comparison/
 .vscode/
 *.pyc
 *.log
+*.db
+debug.html
+check_debug*.py
+.env
+.DS_Store
