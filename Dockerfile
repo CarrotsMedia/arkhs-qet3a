@@ -22,9 +22,10 @@ RUN python3 -m playwright install chromium
 # Copy project files
 COPY . .
 
-# Create output directory
-RUN mkdir -p output
+# Create output and data directories
+RUN mkdir -p output data
 
 EXPOSE 3000
 
-CMD ["node", "server.js"]
+# Initialize DB schema then start server
+CMD ["sh", "-c", "python3 db_schema.py && node server.js"]

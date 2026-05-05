@@ -16,13 +16,35 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Connect to Database
 const dbPath = path.resolve(__dirname, 'pc_parts.db');
 let db;
-try {
-    // Open in readwrite so we don't break if sync writes (though better-sqlite3 handles concurrent reads well)
-    db = new Database(dbPath, { readonly: true });
-    console.log('Connected to the SQLite database.');
-} catch (err) {
-    console.error('Error connecting to database:', err.message);
-    process.exit(1);
+
+function connectDB() {
+    try {
+        db = new Database(dbPath, { readonly: false, fileMustExist: true });
+        console.log('Connected to the SQLite database.');
+        return true;
+    } catch (err) {
+        console.error('Error connecting to database:', err.message);
+        return false;
+    }
+}
+
+// Try connecting with retries (gives db_schema.py time to create the DB)
+function connectWithRetry(maxRetries = 15, intervalMs = 2000) {
+    let attempt = 0;
+    return new Promise((resolve, reject) => {
+        const tryConnect = () => {
+            attempt++;
+            if (connectDB()) {
+                resolve();
+            } else if (attempt < maxRetries) {
+                console.log(`Retrying DB connection in ${intervalMs/1000}s... (attempt ${attempt}/${maxRetries})`);
+                setTimeout(tryConnect, intervalMs);
+            } else {
+                reject(new Error('Failed to connect to database after maximum retries'));
+            }
+        };
+        tryConnect();
+    });
 }
 
 // ═══════════════════════════════════════════════════
@@ -486,6 +508,18 @@ app.get('/api/history/:id', (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
-});
+// ═══════════════════════════════════════════════════
+// Start Server
+// ═══════════════════════════════════════════════════
+connectWithRetry()
+    .then(() => {
+        console.log('Starting Container');
+        app.listen(PORT, () => {
+            console.log(`Server is running on http://localhost:${PORT}`);
+        });
+    })
+    .catch((err) => {
+        console.error(err.message);
+        process.exit(1);
+    });
+
