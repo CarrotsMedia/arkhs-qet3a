@@ -38,7 +38,8 @@ INSERT INTO stores (slug, name, website) VALUES
     ('sigma', 'Sigma Computer', 'https://sigma-computer.com'),
     ('badr-group', 'البدر جروب', 'https://badrgroup.com'),
     ('compumarts', 'Compumarts', 'https://www.compumarts.com'),
-    ('noon', 'Noon', 'https://www.noon.com/egypt-en/')
+    ('noon', 'Noon', 'https://www.noon.com/egypt-en/'),
+    ('amazon', 'Amazon', 'https://www.amazon.eg')
 ON CONFLICT (slug) DO NOTHING;
 
 -- ──────────────────────────────────────────────

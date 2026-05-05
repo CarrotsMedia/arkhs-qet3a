@@ -200,7 +200,9 @@ class AmazonScraper:
 
 async def main():
     parser = argparse.ArgumentParser(description="Amazon Egypt Scraper Prototype")
-    parser.add_argument("--search", type=str, required=True, help="Search query")
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--search", type=str, help="Search query")
+    group.add_argument("--all", action="store_true", help="Scrape predefined categories")
     
     args = parser.parse_args()
     
@@ -210,10 +212,17 @@ async def main():
         browser = await scraper.init_browser(pw)
         page = await scraper.get_page(browser)
 
-        await scraper.search_products(page, args.search)
-        
-        safe_query = re.sub(r"[^\w]", "_", args.search.lower())
-        scraper.save_json(f"amazon_search_{safe_query}.json")
+        if args.search:
+            await scraper.search_products(page, args.search)
+            safe_query = re.sub(r"[^\w]", "_", args.search.lower())
+            scraper.save_json(f"amazon_search_{safe_query}.json")
+            
+        elif args.all:
+            keywords = ["laptop", "processor", "graphics card", "motherboard", "ssd", "monitor", "ram"]
+            for keyword in keywords:
+                await scraper.search_products(page, keyword)
+                await asyncio.sleep(3)
+            scraper.save_json("amazon_all_products.json")
 
         await browser.close()
 

@@ -60,7 +60,7 @@ class NoonScraper:
 
     async def init_browser(self, pw):
         # We use a real-looking user agent
-        return await pw.chromium.launch(headless=True)
+        return await pw.chromium.launch(headless=False)
 
     async def get_page(self, browser):
         context = await browser.new_context(
@@ -87,19 +87,19 @@ class NoonScraper:
             product_id = match.group(1) if match else href.split('/')[-2] if len(href.split('/')) > 2 else ""
             
             # Title
-            title_el = await card.query_selector('div[data-qa="product-name"]')
+            title_el = await card.query_selector('[data-qa="plp-product-box-name"]')
             if not title_el:
                  return None
             name = (await title_el.inner_text()).strip()
 
             # Price
-            price_el = await card.query_selector('strong.amount')
+            price_el = await card.query_selector('[data-qa="plp-product-box-price"] strong, strong[class*="amount"]')
             price = None
             if price_el:
                 price = parse_price(await price_el.inner_text())
 
             # Original Price
-            orig_price_el = await card.query_selector('div.oldPrice')
+            orig_price_el = await card.query_selector('span[class*="oldPrice"], .strikeThrough')
             orig_price = None
             if orig_price_el:
                 orig_price = parse_price(await orig_price_el.inner_text())
@@ -145,13 +145,16 @@ class NoonScraper:
         try:
             await page.goto(url, wait_until="domcontentloaded", timeout=45000)
             # Wait for product grid wrapper
-            await page.wait_for_selector('span.productContainer', timeout=15000)
+            await page.wait_for_selector('div[data-qa="plp-product-box"]', timeout=15000)
             await asyncio.sleep(2) # Give it time to render dynamic content
         except PwTimeout:
             log.warning("Timeout reached. The page might not have loaded correctly or there are no results.")
+        except Exception as e:
+            log.error(f"Failed to navigate to {url}: {e}")
+            return
 
-        # Noon wraps products in a span with class productContainer
-        cards = await page.query_selector_all('span.productContainer')
+        # Noon wraps products in a div with data-qa="plp-product-box"
+        cards = await page.query_selector_all('div[data-qa="plp-product-box"]')
         log.info(f"Found {len(cards)} result cards for '{query}'.")
 
         added_count = 0
