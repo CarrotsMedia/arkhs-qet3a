@@ -37,7 +37,8 @@ CREATE TABLE IF NOT EXISTS stores (
 INSERT INTO stores (slug, name, website) VALUES
     ('sigma', 'Sigma Computer', 'https://sigma-computer.com'),
     ('badr-group', 'البدر جروب', 'https://badrgroup.com'),
-    ('compumarts', 'Compumarts', 'https://www.compumarts.com')
+    ('compumarts', 'Compumarts', 'https://www.compumarts.com'),
+    ('noon', 'Noon', 'https://www.noon.com/egypt-en/')
 ON CONFLICT (slug) DO NOTHING;
 
 -- ──────────────────────────────────────────────

@@ -39,6 +39,9 @@ def main():
     # 4. Scrape Compumarts
     compumarts_success = run_command(["compumarts_scraper.py", "--all"], "Scraping Compumarts")
     
+    # 5. Scrape Noon
+    noon_success = run_command(["noon_scraper.py", "--all"], "Scraping Noon")
+    
     # 5. Load data into DB
     print(f"\n[{datetime.now().strftime('%H:%M:%S')}] Loading data into Database ...")
     
@@ -78,6 +81,15 @@ def main():
     elif compumarts_success and not compumarts_file.exists():
         print(f"Compumarts scraped finished but {compumarts_file} not found.")
 
+    noon_file = Path("output/noon_all_products.json")
+    if noon_success and noon_file.exists():
+        try:
+            load_scraper_output(str(noon_file), "noon")
+        except Exception as e:
+            print(f"Failed to load Noon data into DB: {e}")
+    elif noon_success and not noon_file.exists():
+        print(f"Noon scraped finished but {noon_file} not found.")
+
     # 5. Clean up output directory (optional, but good for space)
     print(f"\n[{datetime.now().strftime('%H:%M:%S')}] Cleaning up temporary files ...")
     try:
@@ -85,6 +97,7 @@ def main():
         if elbadr_file.exists(): elbadr_file.unlink()
         if max_file.exists(): max_file.unlink()
         if compumarts_file.exists(): compumarts_file.unlink()
+        if noon_file.exists(): noon_file.unlink()
         # Clean any category json files
         for f in Path("output").glob("category_*.json"):
             f.unlink()
