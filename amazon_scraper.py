@@ -198,11 +198,50 @@ class AmazonScraper:
         log.info(f"Saved {len(self.products)} products \u2192 {filepath}")
 
 
+def load_scraper_keywords():
+    """Load keywords from config/categories.json, fallback to defaults."""
+    config_path = Path("config/categories.json")
+    if config_path.exists():
+        try:
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+            keywords = []
+            for cat in config.get("categories", []):
+                for sub in cat.get("subcategories", []):
+                    # Take first 2 keywords from each subcategory
+                    kws = sub.get("keywords", [])
+                    keywords.extend(kws[:2])
+            if keywords:
+                log.info(f"Loaded {len(keywords)} keywords from config/categories.json")
+                return keywords
+        except Exception as e:
+            log.warning(f"Failed to load config: {e}, using defaults")
+
+    return [
+        # Computers & PC Parts
+        "laptop", "processor", "graphics card", "motherboard", "ssd", "monitor", "ram",
+        # Electronics
+        "smartphone", "tablet", "smart watch", "tv", "camera", "printer",
+        # Home Appliances
+        "refrigerator", "washing machine", "air conditioner", "microwave", "vacuum cleaner",
+        # Fashion
+        "men shoes", "women dress", "backpack", "sunglasses",
+        # Beauty
+        "makeup", "perfume", "skincare",
+        # Grocery
+        "coffee", "snacks",
+        # Automotive
+        "car accessories", "tires",
+        # Office
+        "office chair", "desk",
+    ]
+
+
 async def main():
     parser = argparse.ArgumentParser(description="Amazon Egypt Scraper Prototype")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--search", type=str, help="Search query")
     group.add_argument("--all", action="store_true", help="Scrape predefined categories")
+    group.add_argument("--mobiles", action="store_true", help="Scrape mobiles and tablets")
     
     args = parser.parse_args()
     
@@ -217,8 +256,15 @@ async def main():
             safe_query = re.sub(r"[^\w]", "_", args.search.lower())
             scraper.save_json(f"amazon_search_{safe_query}.json")
             
+        elif args.mobiles:
+            keywords = ["smartphone", "mobile phone", "tablet"]
+            for keyword in keywords:
+                await scraper.search_products(page, keyword)
+                await asyncio.sleep(3)
+            scraper.save_json("amazon_mobiles.json")
+            
         elif args.all:
-            keywords = ["laptop", "processor", "graphics card", "motherboard", "ssd", "monitor", "ram"]
+            keywords = load_scraper_keywords()
             for keyword in keywords:
                 await scraper.search_products(page, keyword)
                 await asyncio.sleep(3)

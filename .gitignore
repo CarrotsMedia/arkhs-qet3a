@@ -14,4 +14,8 @@ price-comparison/
 debug.html
 check_debug*.py
 .env
-.DS_Store
+.DS_Store
+
+# Scraper debug HTML logs
+*.html
+!public/index.html

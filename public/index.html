@@ -3,79 +3,177 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Dawarly — Compare PC parts prices in real-time across top Egyptian stores like Sigma Computer and El Badr Group.">
-    <title>Dawarly (دورلي) | Live PC Parts Price Comparison</title>
+    <meta name="description" content="Dawarly — Compare prices across Egypt's top stores. Find the best deals on phones, electronics, and more.">
+    <title>Dawarly (دورلي) | Egypt's #1 Price Comparison</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto:wght@500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Roboto:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <header>
-        <h1>دورلي <span class="gradient-text">Dawarly</span></h1>
-        <p>Real-time price comparison across Egypt's top PC stores</p>
-        <div class="live-badge" title="Results are instantly served from our daily synced database">DATABASE POWERED ⚡</div>
+    <!-- ═══ Header ═══ -->
+    <header id="mainHeader">
+        <div class="header-inner">
+            <div class="header-top">
+                <h1 id="logoText"><span class="logo-icon">⚡</span> <span class="gradient-text">Dawarly</span> <span class="logo-ar">دورلي</span></h1>
+                <div class="header-actions">
+                    <div class="lang-toggle" id="langToggle">
+                        <button id="lang-en" class="lang-btn active">EN</button>
+                        <button id="lang-ar" class="lang-btn">عربي</button>
+                    </div>
+                    <button class="menu-toggle" id="menuToggle" aria-label="Open menu">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
     </header>
+
+    <!-- ═══ Category Navigation Bar ═══ -->
+    <nav class="category-nav" id="categoryNav">
+        <div class="category-nav-inner" id="categoryNavInner">
+            <!-- Dynamically populated -->
+        </div>
+    </nav>
+
+    <!-- ═══ Mobile Drawer ═══ -->
+    <div class="drawer-overlay" id="drawerOverlay"></div>
+    <aside class="category-drawer" id="categoryDrawer">
+        <div class="drawer-header">
+            <h2>📂 Categories</h2>
+            <button class="drawer-close" id="drawerClose">✕</button>
+        </div>
+        <div class="drawer-body" id="drawerBody"></div>
+    </aside>
 
     <div class="container">
         <main>
-            <div class="search-container">
-                <input type="text" id="searchInput" placeholder="Search for RTX 4070, Core i5, DDR5 RAM..." autocomplete="off">
-                <button id="searchBtn">🔍 Search Now</button>
+            <!-- ═══ Homepage ═══ -->
+            <div id="homepageSections">
+                <!-- Hero / Search -->
+                <section class="hero-section" id="heroSection">
+                    <div class="hero-content">
+                        <h2 class="hero-title" id="heroTitle">Compare Prices Across<br><span class="hero-highlight">Egypt's Top Stores</span></h2>
+                        <p class="hero-subtitle" id="heroSubtitle">Find the best deals on phones, laptops, and electronics from 13+ stores</p>
+                        <div class="search-container" id="searchContainer">
+                            <div class="search-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            </div>
+                            <input type="text" id="searchInput" placeholder="Search for any product... e.g. iPhone 16, Samsung S25" autocomplete="off">
+                            <button id="searchBtn">Search</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Stats Bar -->
+                <section class="stats-bar" id="statsBar">
+                    <div class="stat-item">
+                        <span class="stat-number" id="statProducts">—</span>
+                        <span class="stat-label" id="statProductsLabel">Products</span>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-item">
+                        <span class="stat-number" id="statStores">—</span>
+                        <span class="stat-label" id="statStoresLabel">Stores</span>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-item">
+                        <span class="stat-number" id="statCategories">—</span>
+                        <span class="stat-label" id="statCategoriesLabel">Categories</span>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-item">
+                        <span class="stat-number" id="statSync">—</span>
+                        <span class="stat-label" id="statSyncLabel">Last Sync</span>
+                    </div>
+                </section>
+
+                <!-- Categories -->
+                <section class="section" id="featuredCategoriesSection">
+                    <h2 class="section-title"><span class="section-icon">🏪</span> <span id="catSectionTitle">Shop by Category</span></h2>
+                    <div class="categories-grid" id="categoriesGrid"></div>
+                </section>
+
+                <!-- Top Savings -->
+                <section class="section" id="savingsSection">
+                    <h2 class="section-title"><span class="section-icon">💰</span> <span id="savingsSectionTitle">Biggest Price Differences</span></h2>
+                    <p class="section-desc" id="savingsDesc">Products where you can save the most by choosing the right store</p>
+                    <div class="products-grid" id="savingsGrid"></div>
+                </section>
+
+                <!-- Featured Products -->
+                <section class="section" id="featuredSection">
+                    <h2 class="section-title"><span class="section-icon">⭐</span> <span id="featuredSectionTitle">Featured Products</span></h2>
+                    <div class="products-grid" id="featuredGrid"></div>
+                </section>
+
+                <!-- Best Deals -->
+                <section class="section" id="dealsSection">
+                    <h2 class="section-title"><span class="section-icon">🔥</span> <span id="dealsSectionTitle">Best Deals</span></h2>
+                    <div class="products-grid" id="dealsGrid"></div>
+                </section>
+
+                <!-- Recently Added -->
+                <section class="section" id="recentSection">
+                    <h2 class="section-title"><span class="section-icon">🆕</span> <span id="recentSectionTitle">Recently Added</span></h2>
+                    <div class="products-grid" id="recentGrid"></div>
+                </section>
             </div>
-            
-            <div class="dashboard-stats" id="stats">
-                <span id="resultText">Popular Suggestions</span>
-                <div class="filter-wrapper" id="inStockWrapper" style="display: none;" title="Show only available products">
-                    <span class="filter-label">In Stock Only</span>
-                    <label class="switch">
-                        <input type="checkbox" id="inStockToggle">
-                        <span class="slider round"></span>
-                    </label>
+
+            <!-- ═══ Browse View ═══ -->
+            <div id="browseView" style="display:none;">
+                <!-- Breadcrumbs -->
+                <div id="breadcrumbsBar" class="breadcrumbs-bar" style="display:none;">
+                    <div id="breadcrumbs" class="breadcrumbs"></div>
                 </div>
-            </div>
 
-            <div class="db-stats" id="dbStats" style="text-align: center; font-size: 0.85rem; color: #666; margin-bottom: 1rem; margin-top: -10px;">
-                <!-- Filled dynamically -->
-            </div>
-
-            <!-- Categories Section -->
-            <div id="categoriesSection" class="categories-section">
-                <h2 class="categories-heading">🗂️ Browse by Category</h2>
-                <div class="categories-grid" id="categoriesGrid">
-                    <!-- Categories populated dynamically -->
+                <div class="browse-header" id="browseHeader">
+                    <div class="browse-info">
+                        <span id="resultText"></span>
+                        <div class="browse-controls">
+                            <div class="filter-wrapper" id="inStockWrapper" style="display:none;">
+                                <span class="filter-label">In Stock</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="inStockToggle">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <select id="sortSelect" class="sort-select">
+                                <option value="price_asc">Price: Low → High</option>
+                                <option value="price_desc">Price: High → Low</option>
+                                <option value="name_asc">Name: A → Z</option>
+                                <option value="name_desc">Name: Z → A</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="subcategoryChips" class="subcategory-chips" style="display:none;"></div>
+                    <div id="brandFilters" class="brand-filters" style="display:none;"></div>
                 </div>
-            </div>
 
-            <!-- Back to Categories (shown when browsing a category) -->
-            <div id="backToCategories" class="back-to-categories" style="display:none;">
-                <button id="backToCategoriesBtn" class="back-categories-btn">← Back to Categories</button>
-                <span id="currentCategoryName" class="current-category-name"></span>
-            </div>
+                <div id="loader" class="loader-container" style="display:none;">
+                    <div class="spinner"></div>
+                    <p>Loading products...</p>
+                </div>
 
-            <!-- Loader -->
-            <div id="loader" class="loader-container" style="display:none; padding: 2rem;">
-                <div class="spinner"></div>
-                <p>Searching database...</p>
-            </div>
-
-            <div class="grid" id="productsGrid">
-                <!-- Products populated dynamically -->
-            </div>
-            
-            <div id="pagination" class="pagination" style="display:none;">
-                <!-- Pagination buttons injected here -->
+                <div class="products-grid" id="productsGrid"></div>
+                <div id="pagination" class="pagination" style="display:none;"></div>
             </div>
         </main>
     </div>
 
-    <!-- Product Detail + Price Compare Modal -->
+    <!-- ═══ Footer ═══ -->
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <p>⚡ <strong>Dawarly</strong> — Egypt's Price Comparison Engine</p>
+            <p class="footer-sub">Prices are updated daily from 13+ Egyptian stores</p>
+        </div>
+    </footer>
+
+    <!-- ═══ Product Detail Modal ═══ -->
     <div id="priceModal" class="modal">
         <div class="modal-content">
-            <span class="close-btn">&times;</span>
-            <div id="modalBody">
-                <!-- Dynamic: Product Detail or Merchants List -->
-            </div>
+            <button class="close-btn" id="modalCloseBtn">&times;</button>
+            <div id="modalBody"></div>
         </div>
     </div>
 
