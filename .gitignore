@@ -2,7 +2,8 @@ node_modules/
 venv/
 Lib/
 Include/
-Scripts/
+/Scripts/
+!scripts/
 __pycache__/
 output/
 price-comparison/
