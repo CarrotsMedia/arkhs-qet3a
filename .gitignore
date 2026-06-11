@@ -1,22 +1,74 @@
+# Dependency directories
 node_modules/
+jspm_packages/
+web_modules/
+
+# Python Virtual Environments
 venv/
+.venv/
+env/
+ENV/
 Lib/
 Include/
 /Scripts/
 !scripts/
 __pycache__/
-output/
-price-comparison/
-.vscode/
 *.pyc
-*.log
+
+# Local databases and SQLite temporary files
+*.db-shm
+*.db-wal
+*.db-journal
+*.sqlite
+*.db.bak
+database.sqlite
+
+# Keep tracking the main database but ignore other db files
 *.db
 !pc_parts.db
+
+# Logs and debug files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 debug.html
 check_debug*.py
-.env
-.DS_Store
 
 # Scraper debug HTML logs
 *.html
-!public/index.html
+!public/index.html
+!public/**/*.html
+
+# IDE / Editor folders
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Temporary scraper output
+output/
+
+# Backups and Scratch files
+backups/
+scratch/
+
+# Build and cache directories
+.next/
+dist/
+build/
+.cache/

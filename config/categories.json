@@ -1,19 +1,19 @@
 {
   "categories": [
     {
-      "slug": "electronics",
-      "name": "Electronics",
-      "name_ar": "إلكترونيات",
+      "slug": "mobiles",
+      "name": "Mobiles",
+      "name_ar": "الموبايلات",
       "icon": "📱",
-      "seo_title": "Electronics - Best Deals on Phones, TVs & More | Dawarly",
-      "seo_description": "Compare prices on smartphones, TVs, cameras and electronics across Egypt's top stores.",
+      "seo_title": "Mobiles - Compare prices of smartphones & tablets | Arkhasly",
+      "seo_description": "Compare mobile phone prices in Egypt from top online stores. Find the best price for iPhone, Samsung, Xiaomi, Oppo and more on Arkhasly.",
       "sort_order": 1,
       "subcategories": [
         {
           "slug": "smartphones",
           "name": "Smartphones",
           "icon": "📱",
-          "keywords": ["smartphone", "mobile phone", "iphone", "samsung galaxy", "phone"],
+          "keywords": ["smartphone", "mobile phone", "iphone", "samsung galaxy", "phone", "موبايل", "تليفون"],
           "attributes": ["brand", "ram", "storage", "screen_size", "battery", "os"],
           "subcategories": [
             { "slug": "android-phones", "name": "Android Phones", "keywords": ["android phone", "samsung", "xiaomi", "oppo", "realme"] },
@@ -31,148 +31,116 @@
           "slug": "tablets",
           "name": "Tablets",
           "icon": "📟",
-          "keywords": ["tablet", "ipad", "samsung tab", "tablet pc"],
+          "keywords": ["tablet", "ipad", "samsung tab", "tablet pc", "تابلت"],
           "attributes": ["brand", "ram", "storage", "screen_size"]
         },
         {
           "slug": "smart-watches",
           "name": "Smart Watches",
           "icon": "⌚",
-          "keywords": ["smart watch", "smartwatch", "apple watch", "fitness tracker"],
+          "keywords": ["smart watch", "smartwatch", "apple watch", "fitness tracker", "ساعة ذكية", "ساعه ذكيه"],
           "attributes": ["brand", "screen_size", "battery", "connectivity"]
-        },
-        {
-          "slug": "tvs",
-          "name": "TVs",
-          "icon": "📺",
-          "keywords": ["tv", "television", "smart tv", "led tv", "oled tv"],
-          "attributes": ["brand", "screen_size", "resolution", "panel_type", "refresh_rate"]
-        },
-        {
-          "slug": "cameras",
-          "name": "Cameras",
-          "icon": "📷",
-          "keywords": ["camera", "dslr", "mirrorless", "action camera", "gopro"],
-          "attributes": ["brand", "sensor_type", "resolution", "lens_mount"]
-        },
-        {
-          "slug": "printers",
-          "name": "Printers",
-          "icon": "🖨️",
-          "keywords": ["printer", "laser printer", "inkjet", "scanner"],
-          "attributes": ["brand", "print_type", "connectivity"]
         }
       ]
     },
     {
-      "slug": "computers",
-      "name": "Computers & PC Parts",
-      "name_ar": "كمبيوترات وقطع غيار",
+      "slug": "electronics",
+      "name": "Electronic Devices",
+      "name_ar": "الأجهزة الإلكترونية",
       "icon": "💻",
-      "seo_title": "Computers & PC Parts - GPUs, CPUs, Laptops | Dawarly",
-      "seo_description": "Compare prices on laptops, graphics cards, processors and PC components across Egyptian stores.",
+      "seo_title": "Electronics - Best Deals on Laptops, TVs & Accessories | Arkhasly",
+      "seo_description": "Compare prices on laptops, computer components, TVs, and general electronics across Egypt's top stores on Arkhasly.",
       "sort_order": 2,
       "subcategories": [
         {
           "slug": "laptops",
           "name": "Laptops",
           "icon": "💻",
-          "keywords": ["laptop", "gaming laptop", "notebook", "ultrabook"],
+          "keywords": ["laptop", "gaming laptop", "notebook", "ultrabook", "لابتوب"],
           "attributes": ["brand", "ram", "storage", "screen_size", "processor", "gpu"]
         },
         {
           "slug": "graphics-cards",
           "name": "Graphics Cards",
           "icon": "🎮",
-          "keywords": ["graphics card", "gpu", "rtx", "radeon", "nvidia", "geforce"],
+          "keywords": ["graphics card", "gpu", "rtx", "radeon", "nvidia", "geforce", "كارت شاشة"],
           "attributes": ["brand", "vram", "memory_type", "clock_speed"]
         },
         {
           "slug": "processors",
           "name": "Processors",
           "icon": "⚡",
-          "keywords": ["processor", "cpu", "core i5", "core i7", "ryzen", "intel"],
+          "keywords": ["processor", "cpu", "core i5", "core i7", "ryzen", "intel", "معالج"],
           "attributes": ["brand", "cores", "threads", "clock_speed", "socket"]
         },
         {
           "slug": "motherboards",
           "name": "Motherboards",
           "icon": "🔧",
-          "keywords": ["motherboard", "mainboard", "mobo"],
+          "keywords": ["motherboard", "mainboard", "mobo", "ماذربورد"],
           "attributes": ["brand", "socket", "chipset", "form_factor", "ram_slots"]
         },
         {
           "slug": "ram-memory",
           "name": "RAM & Memory",
           "icon": "🧩",
-          "keywords": ["ram", "ddr4", "ddr5", "memory"],
+          "keywords": ["ram", "ddr4", "ddr5", "memory", "رامات"],
           "attributes": ["brand", "capacity", "speed", "type"]
         },
         {
           "slug": "storage",
           "name": "Storage",
           "icon": "💾",
-          "keywords": ["ssd", "hdd", "hard drive", "nvme", "external hard"],
+          "keywords": ["ssd", "hdd", "hard drive", "nvme", "external hard", "هارد"],
           "attributes": ["brand", "capacity", "type", "interface", "read_speed"]
         },
         {
           "slug": "cases",
           "name": "Cases",
           "icon": "🖥️",
-          "keywords": ["computer case", "pc case", "tower", "atx case"],
+          "keywords": ["computer case", "pc case", "tower", "atx case", "كيسه"],
           "attributes": ["brand", "form_factor", "color"]
         },
         {
           "slug": "power-supplies",
           "name": "Power Supplies",
           "icon": "🔌",
-          "keywords": ["power supply", "psu", "ups", "power strip"],
+          "keywords": ["power supply", "psu", "ups", "power strip", "باور سبلاي"],
           "attributes": ["brand", "wattage", "efficiency", "modular"]
         },
         {
           "slug": "cooling",
           "name": "Cooling",
           "icon": "❄️",
-          "keywords": ["cooler", "liquid cooler", "air cooler", "fan", "thermal paste"],
+          "keywords": ["cooler", "liquid cooler", "air cooler", "fan", "thermal paste", "تبريد"],
           "attributes": ["brand", "type", "fan_size", "noise_level"]
         },
         {
           "slug": "monitors",
           "name": "Monitors",
           "icon": "🖥️",
-          "keywords": ["monitor", "gaming monitor", "display"],
+          "keywords": ["monitor", "gaming monitor", "display", "شاشة كمبيوتر"],
           "attributes": ["brand", "screen_size", "resolution", "refresh_rate", "panel_type"]
         },
         {
           "slug": "pc-bundles",
           "name": "PC Bundles",
           "icon": "📦",
-          "keywords": ["pc bundle", "pre-built pc", "desktop bundle", "all-in-one"],
+          "keywords": ["pc bundle", "pre-built pc", "desktop bundle", "all-in-one", "تجميعة"],
           "attributes": ["brand", "processor", "gpu", "ram", "storage"]
-        }
-      ]
-    },
-    {
-      "slug": "peripherals",
-      "name": "Peripherals & Accessories",
-      "name_ar": "ملحقات واكسسوارات",
-      "icon": "⌨️",
-      "seo_title": "Peripherals & Accessories - Keyboards, Mice, Audio | Dawarly",
-      "seo_description": "Find the best prices on keyboards, mice, headsets and gaming accessories in Egypt.",
-      "sort_order": 3,
-      "subcategories": [
+        },
         {
           "slug": "keyboards-mice",
           "name": "Keyboards & Mice",
           "icon": "⌨️",
-          "keywords": ["keyboard", "mouse", "mechanical keyboard", "gaming mouse", "mousepad"],
+          "keywords": ["keyboard", "mouse", "mechanical keyboard", "gaming mouse", "mousepad", "كيبورد", "ماوس"],
           "attributes": ["brand", "type", "connectivity", "switch_type"]
         },
         {
           "slug": "audio",
           "name": "Audio",
           "icon": "🎧",
-          "keywords": ["headphones", "headset", "earbuds", "speakers", "microphone"],
+          "keywords": ["headphones", "headset", "earbuds", "speakers", "microphone", "سماعات"],
           "attributes": ["brand", "type", "connectivity", "driver_size"]
         },
         {
@@ -193,7 +161,7 @@
           "slug": "networking",
           "name": "Networking",
           "icon": "🌐",
-          "keywords": ["router", "switch", "wifi", "access point", "network"],
+          "keywords": ["router", "switch", "wifi", "access point", "network", "راوتر"],
           "attributes": ["brand", "speed", "wifi_standard", "ports"]
         },
         {
@@ -209,240 +177,27 @@
           "icon": "🎒",
           "keywords": ["laptop bag", "laptop stand", "cooling pad", "screen protector"],
           "attributes": ["brand", "type", "compatibility"]
-        }
-      ]
-    },
-    {
-      "slug": "home-appliances",
-      "name": "Home Appliances",
-      "name_ar": "أجهزة منزلية",
-      "icon": "🏠",
-      "seo_title": "Home Appliances - Refrigerators, Washing Machines & More | Dawarly",
-      "seo_description": "Compare prices on refrigerators, washing machines, ACs and home appliances across Egypt.",
-      "sort_order": 4,
-      "subcategories": [
-        {
-          "slug": "refrigerators",
-          "name": "Refrigerators",
-          "icon": "🧊",
-          "keywords": ["refrigerator", "fridge", "freezer"],
-          "attributes": ["brand", "capacity", "type", "energy_rating"]
         },
         {
-          "slug": "washing-machines",
-          "name": "Washing Machines",
-          "icon": "🫧",
-          "keywords": ["washing machine", "washer", "dryer"],
-          "attributes": ["brand", "capacity", "type", "spin_speed"]
+          "slug": "tvs",
+          "name": "TVs",
+          "icon": "📺",
+          "keywords": ["tv", "television", "smart tv", "led tv", "oled tv", "تلفزيون"],
+          "attributes": ["brand", "screen_size", "resolution", "panel_type", "refresh_rate"]
         },
         {
-          "slug": "air-conditioners",
-          "name": "Air Conditioners",
-          "icon": "🌡️",
-          "keywords": ["air conditioner", "ac", "split ac", "portable ac"],
-          "attributes": ["brand", "cooling_capacity", "type", "energy_rating"]
+          "slug": "cameras",
+          "name": "Cameras",
+          "icon": "📷",
+          "keywords": ["camera", "dslr", "mirrorless", "action camera", "gopro", "كاميرا"],
+          "attributes": ["brand", "sensor_type", "resolution", "lens_mount"]
         },
         {
-          "slug": "microwaves",
-          "name": "Microwaves & Ovens",
-          "icon": "♨️",
-          "keywords": ["microwave", "oven", "toaster oven"],
-          "attributes": ["brand", "capacity", "wattage"]
-        },
-        {
-          "slug": "vacuum-cleaners",
-          "name": "Vacuum Cleaners",
-          "icon": "🧹",
-          "keywords": ["vacuum cleaner", "robot vacuum", "steam mop"],
-          "attributes": ["brand", "type", "wattage", "cordless"]
-        },
-        {
-          "slug": "water-heaters",
-          "name": "Water Heaters",
-          "icon": "🚿",
-          "keywords": ["water heater", "geyser", "instant heater"],
-          "attributes": ["brand", "capacity", "type"]
-        }
-      ]
-    },
-    {
-      "slug": "fashion",
-      "name": "Fashion",
-      "name_ar": "أزياء",
-      "icon": "👕",
-      "seo_title": "Fashion - Men & Women Clothing, Shoes & Bags | Dawarly",
-      "seo_description": "Compare prices on clothing, shoes, bags and fashion accessories across Egyptian stores.",
-      "sort_order": 5,
-      "subcategories": [
-        {
-          "slug": "men-clothing",
-          "name": "Men Clothing",
-          "icon": "👔",
-          "keywords": ["men clothing", "men shirt", "men pants", "men jacket"],
-          "attributes": ["brand", "size", "color", "material"]
-        },
-        {
-          "slug": "women-clothing",
-          "name": "Women Clothing",
-          "icon": "👗",
-          "keywords": ["women clothing", "women dress", "women blouse", "women skirt"],
-          "attributes": ["brand", "size", "color", "material"]
-        },
-        {
-          "slug": "shoes",
-          "name": "Shoes",
-          "icon": "👟",
-          "keywords": ["shoes", "sneakers", "men shoes", "women shoes", "boots"],
-          "attributes": ["brand", "size", "color", "material", "gender"]
-        },
-        {
-          "slug": "bags",
-          "name": "Bags",
-          "icon": "👜",
-          "keywords": ["bag", "backpack", "handbag", "wallet", "luggage"],
-          "attributes": ["brand", "type", "material", "color"]
-        },
-        {
-          "slug": "watches",
-          "name": "Watches",
-          "icon": "⌚",
-          "keywords": ["watch", "men watch", "women watch", "luxury watch"],
-          "attributes": ["brand", "type", "movement", "material"]
-        },
-        {
-          "slug": "accessories",
-          "name": "Fashion Accessories",
-          "icon": "🕶️",
-          "keywords": ["sunglasses", "belt", "scarf", "jewelry", "accessories"],
-          "attributes": ["brand", "type", "material", "color"]
-        }
-      ]
-    },
-    {
-      "slug": "beauty",
-      "name": "Beauty & Health",
-      "name_ar": "جمال وصحة",
-      "icon": "💄",
-      "seo_title": "Beauty & Health - Makeup, Skincare & Perfumes | Dawarly",
-      "seo_description": "Compare prices on makeup, skincare, perfumes and beauty products across Egyptian stores.",
-      "sort_order": 6,
-      "subcategories": [
-        {
-          "slug": "makeup",
-          "name": "Makeup",
-          "icon": "💋",
-          "keywords": ["makeup", "lipstick", "foundation", "mascara", "concealer"],
-          "attributes": ["brand", "type", "shade", "finish"]
-        },
-        {
-          "slug": "skincare",
-          "name": "Skincare",
-          "icon": "🧴",
-          "keywords": ["skincare", "moisturizer", "sunscreen", "serum", "cleanser"],
-          "attributes": ["brand", "skin_type", "spf", "volume"]
-        },
-        {
-          "slug": "perfumes",
-          "name": "Perfumes",
-          "icon": "🌸",
-          "keywords": ["perfume", "cologne", "fragrance", "eau de toilette"],
-          "attributes": ["brand", "volume", "gender", "type"]
-        }
-      ]
-    },
-    {
-      "slug": "grocery",
-      "name": "Grocery",
-      "name_ar": "بقالة",
-      "icon": "🛒",
-      "seo_title": "Grocery - Snacks, Beverages & Coffee | Dawarly",
-      "seo_description": "Compare prices on snacks, beverages, coffee and grocery items across Egyptian stores.",
-      "sort_order": 7,
-      "subcategories": [
-        {
-          "slug": "snacks",
-          "name": "Snacks",
-          "icon": "🍿",
-          "keywords": ["snacks", "chips", "chocolate", "biscuits", "nuts"],
-          "attributes": ["brand", "weight", "flavor"]
-        },
-        {
-          "slug": "beverages",
-          "name": "Beverages",
-          "icon": "🥤",
-          "keywords": ["beverages", "juice", "soft drink", "water", "energy drink"],
-          "attributes": ["brand", "volume", "flavor"]
-        },
-        {
-          "slug": "coffee-tea",
-          "name": "Coffee & Tea",
-          "icon": "☕",
-          "keywords": ["coffee", "tea", "nescafe", "espresso", "green tea"],
-          "attributes": ["brand", "type", "weight", "origin"]
-        }
-      ]
-    },
-    {
-      "slug": "automotive",
-      "name": "Automotive",
-      "name_ar": "سيارات",
-      "icon": "🚗",
-      "seo_title": "Automotive - Car Accessories, Tires & Oils | Dawarly",
-      "seo_description": "Compare prices on car accessories, tires, oils and automotive products in Egypt.",
-      "sort_order": 8,
-      "subcategories": [
-        {
-          "slug": "car-accessories",
-          "name": "Car Accessories",
-          "icon": "🚙",
-          "keywords": ["car accessories", "car charger", "car mount", "dashcam"],
-          "attributes": ["brand", "type", "compatibility"]
-        },
-        {
-          "slug": "tires",
-          "name": "Tires",
-          "icon": "🛞",
-          "keywords": ["tires", "car tires", "tire"],
-          "attributes": ["brand", "size", "type", "season"]
-        },
-        {
-          "slug": "oils-fluids",
-          "name": "Oils & Fluids",
-          "icon": "🛢️",
-          "keywords": ["motor oil", "engine oil", "brake fluid", "coolant"],
-          "attributes": ["brand", "viscosity", "volume", "type"]
-        }
-      ]
-    },
-    {
-      "slug": "office",
-      "name": "Office & Furniture",
-      "name_ar": "مكتبي وأثاث",
-      "icon": "🖇️",
-      "seo_title": "Office & Furniture - Chairs, Desks & Supplies | Dawarly",
-      "seo_description": "Compare prices on office chairs, desks and office supplies across Egyptian stores.",
-      "sort_order": 9,
-      "subcategories": [
-        {
-          "slug": "office-chairs",
-          "name": "Office Chairs",
-          "icon": "🪑",
-          "keywords": ["office chair", "ergonomic chair", "gaming chair", "desk chair"],
-          "attributes": ["brand", "type", "material", "weight_capacity"]
-        },
-        {
-          "slug": "desks",
-          "name": "Desks",
-          "icon": "🪵",
-          "keywords": ["desk", "standing desk", "computer desk", "office desk"],
-          "attributes": ["brand", "type", "material", "dimensions"]
-        },
-        {
-          "slug": "office-supplies",
-          "name": "Office Supplies",
-          "icon": "📎",
-          "keywords": ["office supplies", "pen", "notebook", "stapler", "paper"],
-          "attributes": ["brand", "type"]
+          "slug": "printers",
+          "name": "Printers",
+          "icon": "🖨️",
+          "keywords": ["printer", "laser printer", "inkjet", "scanner", "طابعة"],
+          "attributes": ["brand", "print_type", "connectivity"]
         }
       ]
     }

@@ -26,15 +26,15 @@ def main():
     start_time = time.time()
     
     scrapers = [
-        ("noon_scraper.py", "noon", "Scraping Noon Mobiles"),
-        ("amazon_scraper.py", "amazon", "Scraping Amazon Mobiles"),
-        ("btech_scraper.py", "btech", "Scraping B.TECH"),
-        ("dubaiphone_scraper.py", "dubaiphone", "Scraping Dubai Phone"),
-        ("dream2000_scraper.py", "dream2000", "Scraping Dream 2000"),
-        ("alsheikh_scraper.py", "alsheikhstores", "Scraping Al Sheikh Stores"),
-        ("raya_scraper.py", "rayashop", "Scraping Raya Shop"),
-        ("2b_scraper.py", "2b", "Scraping 2B"),
-        ("jumia_scraper.py", "jumia", "Scraping Jumia"),
+        ("scrapers/noon_scraper.py", "noon", "Scraping Noon Mobiles"),
+        ("scrapers/amazon_scraper.py", "amazon", "Scraping Amazon Mobiles"),
+        ("scrapers/btech_scraper.py", "btech", "Scraping B.TECH"),
+        ("scrapers/dubaiphone_scraper.py", "dubaiphone", "Scraping Dubai Phone"),
+        ("scrapers/dream2000_scraper.py", "dream2000", "Scraping Dream 2000"),
+        ("scrapers/alsheikh_scraper.py", "alsheikhstores", "Scraping Al Sheikh Stores"),
+        ("scrapers/raya_scraper.py", "rayashop", "Scraping Raya Shop"),
+        ("scrapers/2b_scraper.py", "2b", "Scraping 2B"),
+        ("scrapers/jumia_scraper.py", "jumia", "Scraping Jumia"),
     ]
     
     results = {}
@@ -77,6 +77,15 @@ def main():
     print("=" * 60)
     print(f"Sync Completed at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} (Took {elapsed:.2f} seconds)")
     print("=" * 60)
+
+    # Trigger product variant mapping and normalization pipeline
+    print("\n🔄 Running product variants merge pipeline (merge_products_v2.py)...")
+    try:
+        from scripts.merge_products_v2 import process_merge_pipeline
+        process_merge_pipeline()
+        print("✔ Product variants merge pipeline completed successfully!")
+    except Exception as e:
+        print(f"✗ Product variants merge pipeline failed: {e}")
 
 if __name__ == "__main__":
     main()

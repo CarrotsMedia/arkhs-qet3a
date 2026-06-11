@@ -1,7 +1,85 @@
 import json
-import sqlite3
+import os
+import psycopg2
+import psycopg2.extras
 from pathlib import Path
+from dotenv import load_dotenv
 from scripts.enrich_utils import enrich_product_record
+
+# Load env variables
+load_dotenv(Path(__file__).resolve().parent / ".env")
+
+DATABASE_URL = os.getenv("DATABASE_URL", "postgres://arkhsly_admin:arkhsly_secure_pass@localhost:5432/arkhsly_db")
+
+class PgCursorWrapper:
+    def __init__(self, pg_cur):
+        self.pg_cur = pg_cur
+
+    def execute(self, sql, params=None):
+        if sql.strip().upper().startswith("PRAGMA"):
+            return self
+        sql_translated = sql.replace('?', '%s')
+        self.pg_cur.execute(sql_translated, params)
+        return self
+
+    def fetchone(self):
+        try:
+            return self.pg_cur.fetchone()
+        except Exception:
+            return None
+
+    def fetchall(self):
+        try:
+            return self.pg_cur.fetchall()
+        except Exception:
+            return []
+
+    def executescript(self, sql_script):
+        for statement in sql_script.split(';'):
+            cleaned = statement.strip()
+            if cleaned:
+                cleaned = cleaned.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
+                cleaned = cleaned.replace("DATETIME DEFAULT CURRENT_TIMESTAMP", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+                cleaned = cleaned.replace("ON CONFLICT (slug) DO NOTHING", "ON CONFLICT DO NOTHING")
+                try:
+                    self.execute(cleaned)
+                except Exception:
+                    pass
+
+class PgConnWrapper:
+    def __init__(self, pg_conn):
+        self.pg_conn = pg_conn
+        self._row_factory = None
+
+    @property
+    def row_factory(self):
+        return self._row_factory
+
+    @row_factory.setter
+    def row_factory(self, factory):
+        self._row_factory = factory
+
+    def cursor(self):
+        cur = self.pg_conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        return PgCursorWrapper(cur)
+
+    def execute(self, sql, params=None):
+        cur = self.cursor()
+        cur.execute(sql, params)
+        return cur
+
+    def commit(self):
+        self.pg_conn.commit()
+
+    def close(self):
+        self.pg_conn.close()
+
+def get_db_connection():
+    conn_str = DATABASE_URL
+    if conn_str.startswith("postgres://"):
+        conn_str = conn_str.replace("postgres://", "postgresql://", 1)
+    conn = psycopg2.connect(conn_str)
+    return PgConnWrapper(conn)
 
 # ==========================================
 # Schema Definitions for SQLite
@@ -69,7 +147,7 @@ CREATE TABLE IF NOT EXISTS products (
     category          TEXT,
     category_id       INTEGER REFERENCES categories(id),
     subcategory_id    INTEGER REFERENCES subcategories(id),
-    merged_product_id INTEGER REFERENCES products(id),
+    merged_product_id INTEGER REFERENCES product_families(id),
     specs             TEXT DEFAULT '{}',
     image_url         TEXT,
     is_featured       INTEGER DEFAULT 0,
@@ -456,93 +534,20 @@ def classify_product(product_name: str, raw_category: str, db_conn=None):
 # ==========================================
 # Database Loader Function
 # ==========================================
-def init_db(db_path: str = "pc_parts.db"):
-    """Creates tables if they don't exist."""
-    conn = sqlite3.connect(db_path)
+def init_db(db_path: str = "database.db"):
+    """Creates tables if they don't exist in PostgreSQL."""
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.executescript(CREATE_TABLES_SQL)
     conn.commit()
     conn.close()
-    print(f"[SUCCESS] Database {db_path} Initialized")
+    print("[SUCCESS] PostgreSQL Database Initialized")
 
-def load_scraper_output(json_file: str, store_slug: str, db_path: str = "pc_parts.db"):
-    """Loads JSON data from scrapers into the SQLite database."""
-    path = Path(json_file)
-    if not path.exists():
-        print(f"Error: {json_file} not found.")
-        return
+def load_scraper_output(json_file: str, store_slug: str, db_path: str = "database.db"):
+    """Loads JSON data from scrapers into the SQLite database. (Delegates to scrapers.db_loader)"""
+    from scrapers.db_loader import load_scraper_output as loader
+    return loader(json_file, store_slug, db_path)
 
-    data = json.loads(path.read_text(encoding="utf-8"))
-    products = data.get("products", [])
-
-    conn = sqlite3.connect(db_path)
-    cur = conn.cursor()
-
-    # Get store ID
-    cur.execute("SELECT id FROM stores WHERE slug = ?", (store_slug,))
-    store_row = cur.fetchone()
-    if not store_row:
-        conn.close()
-        raise ValueError(f"Store '{store_slug}' not found in DB")
-    store_id = store_row[0]
-
-    inserted = 0
-    for p in products:
-        if not p.get("name") or not p.get("id"):
-            continue
-
-        # Upsert Product
-        cur.execute(UPSERT_PRODUCT_SQL, (
-            p["id"],
-            p["name"],
-            normalize_brand(p.get("brand"), p["name"]),
-            p.get("category"),
-            json.dumps(p.get("specs", {})) if p.get("specs") else '{}',
-            p.get("image_url"),
-        ))
-        product_id = cur.fetchone()[0]
-
-        # Auto-classify into category hierarchy
-        cat_id, subcat_id = classify_product(p["name"], p.get("category", ""), conn)
-        if cat_id or subcat_id:
-            cur.execute(
-                "UPDATE products SET category_id = ?, subcategory_id = ? WHERE id = ?",
-                (cat_id, subcat_id, product_id)
-            )
-
-        # Automatically translate and enrich the product record bilingually
-        try:
-            enrich_product_record(conn, product_id)
-        except Exception as e:
-            # Fallback in case of any enrichment issues to not crash the ingestion
-            pass
-
-        # Upsert Price
-        if p.get("price_egp"):
-            # Some scrapers return the URL in specs, others directly in 'product_url'
-            url = p.get("product_url")
-            if not url and p.get("specs") and "url" in p.get("specs"):
-                url = p.get("specs").get("url")
-
-            cur.execute(UPSERT_PRICE_SQL, (
-                product_id,
-                store_id,
-                p["price_egp"],
-                p.get("original_price_egp"),
-                p.get("discount_pct"),
-                p.get("availability", "in_stock"),
-                url,
-            ))
-            
-            # Save Price History
-            cur.execute(INSERT_PRICE_HISTORY_SQL, (
-                product_id, store_id, p["price_egp"]
-            ))
-            inserted += 1
-
-    conn.commit()
-    conn.close()
-    print(f"[SUCCESS] Loaded {inserted} products from '{json_file}' into DB")
 
 
 if __name__ == "__main__":

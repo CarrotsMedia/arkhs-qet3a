@@ -1,6 +1,5 @@
 import re
 import json
-import sqlite3
 from pathlib import Path
 
 ARABIC_BRANDS = {

@@ -1,0 +1,147 @@
+{
+  "stores": {
+    "sqlite": 13,
+    "postgres": 13,
+    "status": "MATCH"
+  },
+  "categories": {
+    "sqlite": 2,
+    "postgres": 2,
+    "status": "MATCH"
+  },
+  "subcategories": {
+    "sqlite": 25,
+    "postgres": 25,
+    "status": "MATCH"
+  },
+  "brands": {
+    "sqlite": 475,
+    "postgres": 475,
+    "status": "MATCH"
+  },
+  "products": {
+    "sqlite": 14966,
+    "postgres": 14966,
+    "status": "MATCH"
+  },
+  "prices": {
+    "sqlite": 15020,
+    "postgres": 15020,
+    "status": "MATCH"
+  },
+  "attribute_definitions": {
+    "sqlite": 9,
+    "postgres": 9,
+    "status": "MATCH"
+  },
+  "canonical_spec_registry": {
+    "sqlite": 6,
+    "postgres": 6,
+    "status": "MATCH"
+  },
+  "spec_aliases": {
+    "sqlite": 14,
+    "postgres": 14,
+    "status": "MATCH"
+  },
+  "subcategory_attributes": {
+    "sqlite": 6,
+    "postgres": 6,
+    "status": "MATCH"
+  },
+  "product_families": {
+    "sqlite": 12744,
+    "postgres": 12744,
+    "status": "MATCH"
+  },
+  "product_variants": {
+    "sqlite": 13602,
+    "postgres": 13602,
+    "status": "MATCH"
+  },
+  "variant_attributes": {
+    "sqlite": 32641,
+    "postgres": 32641,
+    "status": "MATCH"
+  },
+  "price_history": {
+    "sqlite": 143621,
+    "postgres": 143621,
+    "status": "MATCH"
+  },
+  "product_telemetry": {
+    "sqlite": 22,
+    "postgres": 22,
+    "status": "MATCH"
+  },
+  "feature_flags": {
+    "sqlite": 3,
+    "postgres": 3,
+    "status": "MATCH"
+  },
+  "ranking_versions": {
+    "sqlite": 2,
+    "postgres": 2,
+    "status": "MATCH"
+  },
+  "job_queue": {
+    "sqlite": 5,
+    "postgres": 5,
+    "status": "MATCH"
+  },
+  "admin_users": {
+    "sqlite": 1,
+    "postgres": 1,
+    "status": "MATCH"
+  },
+  "admin_sessions": {
+    "sqlite": 10,
+    "postgres": 10,
+    "status": "MATCH"
+  },
+  "admin_audit_log": {
+    "sqlite": 55,
+    "postgres": 55,
+    "status": "MATCH"
+  },
+  "merge_history": {
+    "sqlite": 1,
+    "postgres": 1,
+    "status": "MATCH"
+  },
+  "store_offers": {
+    "sqlite": 14260,
+    "postgres": 14260,
+    "status": "MATCH"
+  },
+  "search_telemetry": {
+    "sqlite": 1,
+    "postgres": 1,
+    "status": "MATCH"
+  },
+  "filter_telemetry": {
+    "sqlite": 0,
+    "postgres": 0,
+    "status": "MATCH (Empty)"
+  },
+  "category_keywords": {
+    "sqlite": 229,
+    "postgres": 229,
+    "status": "MATCH"
+  },
+  "product_attributes": {
+    "sqlite": 0,
+    "postgres": 0,
+    "status": "MATCH (Empty)"
+  },
+  "product_attribute_values": {
+    "sqlite": 0,
+    "postgres": 0,
+    "status": "MATCH (Empty)"
+  },
+  "merge_candidates": {
+    "sqlite": 1111,
+    "postgres": 1111,
+    "status": "MATCH"
+  }
+}

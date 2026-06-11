@@ -1,133 +1,274 @@
-import subprocess
-import time
+#!/usr/bin/env python3
+"""
+Sync Orchestrator
+=================
+HARDENED scraper execution engine. Runs multiple scrapers with concurrent
+subprocess control, monitors execution health, loads data into SQLite,
+and generates a central health status report.
+
+Usage:
+    python sync_all.py                   # Run all scrapers (concurrency limit = 3)
+    python sync_all.py --store sigma 2b  # Run specific store scrapers
+    python sync_all.py --concurrency 4   # Run with 4 concurrent scraper slots
+    python sync_all.py --no-cleanup      # Keep raw JSON output files
+"""
+
+import argparse
+import asyncio
+import json
+import logging
 import sys
+import time
+from datetime import datetime, UTC
 from pathlib import Path
-from datetime import datetime
-from db_schema import load_scraper_output
+from scrapers.registry import get_scraper_config, get_all_store_slugs
+from scrapers.db_loader import load_scraper_output
+from scripts.merge_products_v2 import process_merge_pipeline
 
-def run_command(cmd, desc):
-    print(f"\n[{datetime.now().strftime('%H:%M:%S')}] {desc} ...", flush=True)
+# Config Logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] (Orchestrator) %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger("orchestrator")
+
+REPORT_PATH = Path("output/sync_report.json")
+
+def write_scraper_progress(store_slug: str, progress: dict):
     try:
-        # Use simple Popen without timeout or pipe if we want to stream output natively,
-        # but check_call with sys.executable is usually safer
-        subprocess.run([sys.executable] + cmd, check=True)
-        print(f"[{datetime.now().strftime('%H:%M:%S')}] Success: {desc}")
-        return True
-    except subprocess.CalledProcessError as e:
-        print(f"[{datetime.now().strftime('%H:%M:%S')}] Error: {desc} failed with exit code {e.returncode}")
-        return False
-    except Exception as e:
-        print(f"[{datetime.now().strftime('%H:%M:%S')}] Error: {desc} failed with error {e}")
-        return False
+        progress_path = Path("output") / f"progress_{store_slug}.json"
+        progress_path.write_text(json.dumps(progress, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception:
+        pass
 
-def main():
-    print("=" * 60)
-    print(f"Starting Daily Sync for Dawarly at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("=" * 60)
-    
-    start_time = time.time()
-    
-    # 1. Scrape Sigma
-    sigma_success = run_command(["scraper.py", "--all"], "Scraping Sigma Computer")
-    
-    # 2. Scrape El Badr
-    elbadr_success = run_command(["elbadr_scraper.py", "--all"], "Scraping El Badr Group")
-    
-    # 3. Scrape Maximum Hardware
-    max_success = run_command(["maximum_scraper.py", "--all"], "Scraping Maximum Hardware")
-    
-    # 4. Scrape Compumarts
-    compumarts_success = run_command(["compumarts_scraper.py", "--all"], "Scraping Compumarts")
-    
-    # 5. Scrape Noon
-    noon_success = run_command(["noon_scraper.py", "--all"], "Scraping Noon")
-    
-    # 6. Scrape Amazon
-    amazon_success = run_command(["amazon_scraper.py", "--all"], "Scraping Amazon")
-    
-    # 7. Load data into DB
-    print(f"\n[{datetime.now().strftime('%H:%M:%S')}] Loading data into Database ...")
-    
-    sigma_file = Path("output/sigma_all_products.json")
-    if sigma_success and sigma_file.exists():
-        try:
-            load_scraper_output(str(sigma_file), "sigma")
-        except Exception as e:
-            print(f"Failed to load Sigma data into DB: {e}")
-    elif sigma_success and not sigma_file.exists():
-        print(f"Sigma scraped finished but {sigma_file} not found.")
+def delete_scraper_progress(store_slug: str):
+    try:
+        progress_path = Path("output") / f"progress_{store_slug}.json"
+        if progress_path.exists():
+            progress_path.unlink()
+    except Exception:
+        pass
+
+async def run_single_scraper(store_slug: str, config: dict, semaphore: asyncio.Semaphore) -> dict:
+    """Runs a single store scraper in a separate isolated subprocess with concurrency control."""
+    async with semaphore:
+        start_time = time.time()
+        script = config["script"]
+        args = config.get("args", [])
+        output_file = config["output_file"]
+        db_slug = config["db_slug"]
+
+        # Write starting progress
+        write_scraper_progress(store_slug, {
+            "store_slug": store_slug,
+            "status": "running",
+            "products_scraped": 0,
+            "processed_count": 0,
+            "total_count": 1,
+            "current_keyword": "Starting...",
+            "percentage": 0,
+            "updated_at": datetime.now(UTC).isoformat()
+        })
+
+        log.info(f"▶ Starting: {store_slug} (Running: python {script} {' '.join(args)})")
         
-    elbadr_file = Path("output/elbadr_all_products.json")
-    if elbadr_success and elbadr_file.exists():
-        try:
-            load_scraper_output(str(elbadr_file), "badr-group")
-        except Exception as e:
-            print(f"Failed to load El Badr data into DB: {e}")
-    elif elbadr_success and not elbadr_file.exists():
-        print(f"El Badr scraped finished but {elbadr_file} not found.")
+        status = "failed"
+        error_msg = ""
+        products_count = 0
 
-    max_file = Path("output/maximum_all_products.json")
-    if max_success and max_file.exists():
+        # Execute as a subprocess
         try:
-            load_scraper_output(str(max_file), "maximum-hardware")
-        except Exception as e:
-            print(f"Failed to load Maximum Hardware data into DB: {e}")
-    elif max_success and not max_file.exists():
-        print(f"Maximum Hardware scraped finished but {max_file} not found.")
+            # We run python executable matching the system
+            process = await asyncio.create_subprocess_exec(
+                sys.executable,
+                script,
+                *args,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            
+            stdout, stderr = await process.communicate()
+            exit_code = process.returncode
 
-    compumarts_file = Path("output/compumarts_all_products.json")
-    if compumarts_success and compumarts_file.exists():
+            duration = round(time.time() - start_time, 1)
+
+            if exit_code == 0:
+                # Scraper ran successfully, now verify its output file
+                out_path = Path("output") / output_file
+                if out_path.exists():
+                    try:
+                        # Inspect the output file to get product count
+                        data = json.loads(out_path.read_text(encoding="utf-8"))
+                        products_count = len(data.get("products", []))
+                        status = "success" if products_count > 0 else "empty"
+                        log.info(f"✔ Success: {store_slug} — Scraped {products_count} products in {duration}s")
+                    except Exception as e:
+                        error_msg = f"Failed to parse output JSON: {e}"
+                        status = "failed"
+                        log.error(f"✗ Error: {store_slug} — Invalid JSON output: {e}")
+                else:
+                    error_msg = f"Output file {output_file} not found."
+                    status = "failed"
+                    log.error(f"✗ Error: {store_slug} — Scraper completed but output file is missing")
+            else:
+                error_msg = stderr.decode(errors="ignore").strip() or f"Exit code {exit_code}"
+                status = "failed"
+                log.error(f"✗ Error: {store_slug} failed in {duration}s. Log:\n{error_msg[:300]}")
+
+        except Exception as e:
+            duration = round(time.time() - start_time, 1)
+            error_msg = str(e)
+            status = "failed"
+            log.error(f"✗ Crash: {store_slug} orchestrator execution crashed: {e}")
+
+        # If success, load into database immediately (transaction-isolated per store)
+        loaded_count = 0
+        if status == "success":
+            log.info(f"💾 Ingesting data for {store_slug} into Database...")
+            try:
+                out_path = Path("output") / output_file
+                loaded_count = load_scraper_output(str(out_path), db_slug)
+            except Exception as e:
+                error_msg = f"Database ingestion failure: {e}"
+                status = "failed"
+                log.error(f"✗ Ingestion failure for {store_slug}: {e}")
+
+        # Clean up progress file
+        delete_scraper_progress(store_slug)
+
+        return {
+            "store_slug": store_slug,
+            "status": status,
+            "products_scraped": products_count,
+            "products_loaded": loaded_count,
+            "duration_seconds": duration,
+            "error": error_msg,
+            "completed_at": datetime.now(UTC).isoformat()
+        }
+
+
+async def main_async():
+    parser = argparse.ArgumentParser(description="Dawarly Scraper Orchestrator")
+    parser.add_argument("--store", nargs="+", help="Specific store slug(s) to run")
+    parser.add_argument("--concurrency", type=int, default=3, help="Max parallel scrapers to run")
+    parser.add_argument("--no-cleanup", action="store_true", help="Do not delete raw scraper JSON output files")
+
+    args = parser.parse_args()
+
+    # Determine which stores to run
+    stores_to_run = args.store
+    if not stores_to_run:
+        stores_to_run = get_all_store_slugs()
+
+    # Verify stores exist in registry
+    valid_stores = []
+    for s in stores_to_run:
         try:
-            load_scraper_output(str(compumarts_file), "compumarts")
-        except Exception as e:
-            print(f"Failed to load Compumarts data into DB: {e}")
-    elif compumarts_success and not compumarts_file.exists():
-        print(f"Compumarts scraped finished but {compumarts_file} not found.")
+            get_scraper_config(s)
+            valid_stores.append(s)
+        except ValueError as e:
+            log.error(e)
 
-    noon_file = Path("output/noon_all_products.json")
-    if noon_success and noon_file.exists():
+    if not valid_stores:
+        log.error("No valid stores to run. Exiting.")
+        sys.exit(1)
+
+    log.info("=" * 60)
+    log.info(f"Starting Scraper Sync (Concurrency Limit: {args.concurrency})")
+    log.info(f"Stores to process: {', '.join(valid_stores)}")
+    log.info("=" * 60)
+
+    start_time = time.time()
+    semaphore = asyncio.Semaphore(args.concurrency)
+    
+    # Run scrapers concurrently using the semaphore
+    tasks = [
+        run_single_scraper(store, get_scraper_config(store), semaphore)
+        for store in valid_stores
+    ]
+    
+    results = await asyncio.gather(*tasks)
+
+    # Compile report
+    end_time = time.time()
+    total_duration = round(end_time - start_time, 1)
+
+    # Load existing report to preserve history of unmodified stores
+    report_data = {}
+    if REPORT_PATH.exists():
         try:
-            load_scraper_output(str(noon_file), "noon")
-        except Exception as e:
-            print(f"Failed to load Noon data into DB: {e}")
-    elif noon_success and not noon_file.exists():
-        print(f"Noon scraped finished but {noon_file} not found.")
+            report_data = json.loads(REPORT_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            pass
 
-    amazon_file = Path("output/amazon_all_products.json")
-    if amazon_success and amazon_file.exists():
-        try:
-            load_scraper_output(str(amazon_file), "amazon")
-        except Exception as e:
-            print(f"Failed to load Amazon data into DB: {e}")
-    elif amazon_success and not amazon_file.exists():
-        print(f"Amazon scraped finished but {amazon_file} not found.")
+    # Update reports
+    store_statuses = report_data.get("stores", {})
+    success_count = 0
+    fail_count = 0
+    total_scraped = 0
+    total_loaded = 0
 
-    # 8. Clean up output directory (optional, but good for space)
-    print(f"\n[{datetime.now().strftime('%H:%M:%S')}] Cleaning up temporary files ...")
+    for res in results:
+        slug = res["store_slug"]
+        store_statuses[slug] = res
+        if res["status"] == "success":
+            success_count += 1
+            total_scraped += res["products_scraped"]
+            total_loaded += res["products_loaded"]
+        else:
+            fail_count += 1
+
+    # Keep track of global stats
+    report_data.update({
+        "last_sync_completed": datetime.now(UTC).isoformat(),
+        "total_duration_seconds": total_duration,
+        "scrapers_run_count": len(results),
+        "success_count": success_count,
+        "failure_count": fail_count,
+        "total_products_scraped": total_scraped,
+        "total_products_loaded": total_loaded,
+        "stores": store_statuses
+    })
+
+    # Write report
+    REPORT_PATH.parent.mkdir(exist_ok=True)
+    REPORT_PATH.write_text(json.dumps(report_data, ensure_ascii=False, indent=2), encoding="utf-8")
+    log.info(f"✔ Sync Report written to {REPORT_PATH}")
+
+    # ── Cleanup ──
+    if not args.no_cleanup:
+        log.info("🧹 Cleaning up raw scraper JSON files...")
+        for res in results:
+            if res["status"] == "success":
+                cfg = get_scraper_config(res["store_slug"])
+                file_path = Path("output") / cfg["output_file"]
+                if file_path.exists():
+                    file_path.unlink()
+        
+        # Cleanup miscellaneous category files
+        for pattern in ["category_*.json", "elbadr_cat_*.json", "maximum_cat_*.json", "compumarts_cat_*.json"]:
+            for f in Path("output").glob(pattern):
+                try:
+                    f.unlink()
+                except Exception:
+                    pass
+
+    log.info("=" * 60)
+    log.info(f"Sync Completed. Successful: {success_count}/{len(results)} | Duration: {total_duration}s")
+    log.info("=" * 60)
+
+    # Trigger product variant mapping and normalization pipeline
+    log.info("🔄 Running product variants merge pipeline (merge_products_v2.py)...")
     try:
-        if sigma_file.exists(): sigma_file.unlink()
-        if elbadr_file.exists(): elbadr_file.unlink()
-        if max_file.exists(): max_file.unlink()
-        if compumarts_file.exists(): compumarts_file.unlink()
-        if noon_file.exists(): noon_file.unlink()
-        if amazon_file.exists(): amazon_file.unlink()
-        # Clean any category json files
-        for f in Path("output").glob("category_*.json"):
-            f.unlink()
-        for f in Path("output").glob("elbadr_cat_*.json"):
-            f.unlink()
-        for f in Path("output").glob("maximum_cat_*.json"):
-            f.unlink()
-        for f in Path("output").glob("compumarts_cat_*.json"):
-            f.unlink()
-        print(f"[{datetime.now().strftime('%H:%M:%S')}] Clean up complete.")
+        process_merge_pipeline()
+        log.info("✔ Product variants merge pipeline completed successfully!")
     except Exception as e:
-        print(f"Note: Failed to clean up some files: {e}")
+        log.error(f"✗ Product variants merge pipeline failed: {e}")
 
-    elapsed = time.time() - start_time
-    print("=" * 60)
-    print(f"Sync Completed at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} (Took {elapsed:.2f} seconds)")
-    print("=" * 60)
 
 if __name__ == "__main__":
-    main()
+    # Fix event loop policy on Windows to avoid 'Event loop is closed' warnings
+    if sys.platform == "win32":
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    asyncio.run(main_async())

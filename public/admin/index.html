@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Dawarly Operations Management System">
+    <title>Dawarly Control Panel</title>
+    
+    <!-- Typography & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Noto+Kufi+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="/admin/admin.css">
+    
+    <!-- Chart.js for analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- Global Loading Overlay -->
+    <div id="global-loader" class="global-loader">
+        <div class="loader-content">
+            <div class="loader-spinner"></div>
+            <div class="loader-text">Loading Dawarly Operations...</div>
+        </div>
+    </div>
+
+    <!-- Application Layout -->
+    <div id="app-container" class="app-container hidden">
+        <!-- Sidebar Navigation -->
+        <aside id="sidebar-container" class="sidebar-container"></aside>
+        
+        <!-- Main Content Area -->
+        <div class="main-layout">
+            <!-- Top Dashboard Bar -->
+            <header id="topbar-container" class="topbar-container"></header>
+            
+            <!-- Dynamic SPA Views Outlet -->
+            <main id="app-content" class="app-content"></main>
+        </div>
+    </div>
+
+    <!-- Global Modals Portal -->
+    <div id="modal-portal" class="modal-portal hidden"></div>
+
+    <!-- Reusable Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Application Initialization Script -->
+    <script type="module" src="/admin/admin.js"></script>
+</body>
+</html>
