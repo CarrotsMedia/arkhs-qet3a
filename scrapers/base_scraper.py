@@ -1,7 +1,7 @@
 """
 Base Scraper
 ============
-Shared base class for all Dawarly store scrapers.
+Shared base class for all Arkhsly store scrapers.
 Provides common browser setup, retry logic, data models, 
 timing/error tracking, and result saving.
 

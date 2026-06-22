@@ -87,6 +87,22 @@ class AdminProductService {
             })();
             console.log('Migration completed successfully.');
         }
+        // Additional migrations for variant scoring and color shift
+        const pvCols = await this.db.prepare("PRAGMA table_info(product_variants)").all();
+        if (!pvCols.some(c => c.name === 'confidence_score')) {
+            await this.db.prepare("ALTER TABLE product_variants ADD COLUMN confidence_score REAL").run();
+        }
+
+        const soCols = await this.db.prepare("PRAGMA table_info(store_offers)").all();
+        if (!soCols.some(c => c.name === 'color_en')) {
+            await this.db.prepare("ALTER TABLE store_offers ADD COLUMN color_en TEXT").run();
+        }
+        if (!soCols.some(c => c.name === 'color_ar')) {
+            await this.db.prepare("ALTER TABLE store_offers ADD COLUMN color_ar TEXT").run();
+        }
+        if (!soCols.some(c => c.name === 'confidence_score')) {
+            await this.db.prepare("ALTER TABLE store_offers ADD COLUMN confidence_score REAL").run();
+        }
     }
 
     /**
@@ -107,16 +123,36 @@ class AdminProductService {
 
             await this.db.prepare('CREATE INDEX IF NOT EXISTS idx_pv_sku ON product_variants (sku)').run();
 
-            // Unique index using expressions to handle SQLite NULL behavior
+            // Recreate composite index without color_en to allow color-independent variants
+            try {
+                await this.db.prepare(`DROP INDEX IF EXISTS idx_variant_composite_nonnull`).run();
+            } catch (e) {}
+            
             await this.db.prepare(`
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_variant_composite_nonnull 
                 ON product_variants (
                     family_id,
                     COALESCE(storage_gb, -1),
                     COALESCE(ram_gb, -1),
-                    COALESCE(color_en, ''),
                     COALESCE(network_gen, ''),
                     COALESCE(region_version, '')
+                )
+            `).run();
+
+            // Recreate unique index on store_offers to include color_en
+            try {
+                await this.db.prepare(`ALTER TABLE store_offers DROP CONSTRAINT IF EXISTS uq_so_variant_store`).run();
+            } catch (e) {}
+            try {
+                await this.db.prepare(`DROP INDEX IF EXISTS uq_so_variant_store`).run();
+            } catch (e) {}
+            
+            await this.db.prepare(`
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_so_variant_store 
+                ON store_offers (
+                    variant_id, 
+                    store_id, 
+                    COALESCE(color_en, '')
                 )
             `).run();
 
@@ -329,7 +365,7 @@ class AdminProductService {
 
         // Fetch variants
         const variants = await this.db.prepare(`
-            SELECT id, sku, storage_gb, ram_gb, network_gen, color_en, color_ar, region_version, specs_json, image_url, created_at, updated_at
+            SELECT id, sku, storage_gb, ram_gb, network_gen, color_en, color_ar, region_version, specs_json, image_url, created_at, updated_at, confidence_score
             FROM product_variants
             WHERE family_id = ?
         `).all(id);
@@ -351,6 +387,7 @@ class AdminProductService {
 
             variant.offers = await this.db.prepare(`
                 SELECT so.id, so.store_id, so.variant_id, so.raw_title, so.price_egp, so.original_price_egp, so.discount_pct, so.availability, so.product_url, so.image_url, so.scraped_at, so.is_active, so.is_deleted,
+                       so.color_en, so.color_ar, so.confidence_score,
                        s.name as store_name, s.slug as store_slug
                 FROM store_offers so
                 JOIN stores s ON so.store_id = s.id
@@ -675,7 +712,7 @@ class AdminProductService {
      * Create a new variant with uniqueness validations
      */
     async createVariant(familyId, data) {
-        const { sku, storage_gb, ram_gb, color_en, color_ar, network_gen, region_version } = data;
+        const { sku, storage_gb, ram_gb, network_gen, region_version } = data;
         if (!sku) {
             throw new ValidationError('SKU is required');
         }
@@ -704,14 +741,12 @@ class AdminProductService {
             WHERE family_id = ? 
               AND COALESCE(storage_gb, -1) = ? 
               AND COALESCE(ram_gb, -1) = ? 
-              AND COALESCE(color_en, '') = ? 
               AND COALESCE(network_gen, '') = ? 
               AND COALESCE(region_version, '') = ?
         `).get(
             familyId, 
             storage_gb ? parseInt(storage_gb, 10) : -1, 
             ram_gb ? parseInt(ram_gb, 10) : -1, 
-            color_en || '', 
             network_gen || '', 
             region_version || ''
         );
@@ -723,15 +758,13 @@ class AdminProductService {
         try {
             const result = await this.db.prepare(`
                 INSERT INTO product_variants (
-                    family_id, sku, storage_gb, ram_gb, color_en, color_ar, network_gen, region_version, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    family_id, sku, storage_gb, ram_gb, network_gen, region_version, confidence_score, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, 1.0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             `).run(
                 familyId,
                 sku,
                 storage_gb ? parseInt(storage_gb, 10) : null,
                 ram_gb ? parseInt(ram_gb, 10) : null,
-                color_en || null,
-                color_ar || null,
                 network_gen || null,
                 region_version || null
             );
@@ -749,7 +782,7 @@ class AdminProductService {
      * Update variant details (specs)
      */
     async updateVariant(familyId, variantId, data) {
-        const { sku, storage_gb, ram_gb, color_en, color_ar, network_gen, region_version } = data;
+        const { sku, storage_gb, ram_gb, network_gen, region_version } = data;
         if (!sku) {
             throw new ValidationError('SKU is required');
         }
@@ -778,7 +811,6 @@ class AdminProductService {
             WHERE family_id = ? 
               AND COALESCE(storage_gb, -1) = ? 
               AND COALESCE(ram_gb, -1) = ? 
-              AND COALESCE(color_en, '') = ?
               AND COALESCE(network_gen, '') = ?
               AND COALESCE(region_version, '') = ?
               AND id != ?
@@ -786,7 +818,6 @@ class AdminProductService {
             familyId, 
             storage_gb ? parseInt(storage_gb, 10) : -1, 
             ram_gb ? parseInt(ram_gb, 10) : -1, 
-            color_en || '',
             network_gen || '',
             region_version || '',
             variantId
@@ -802,8 +833,6 @@ class AdminProductService {
                 SET sku = ?,
                     storage_gb = ?,
                     ram_gb = ?,
-                    color_en = ?,
-                    color_ar = ?,
                     network_gen = ?,
                     region_version = ?,
                     updated_at = CURRENT_TIMESTAMP
@@ -812,8 +841,6 @@ class AdminProductService {
                 sku,
                 storage_gb ? parseInt(storage_gb, 10) : null,
                 ram_gb ? parseInt(ram_gb, 10) : null,
-                color_en || null,
-                color_ar || null,
                 network_gen || null,
                 region_version || null,
                 variantId,

@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const Database = require('./services/db');
 const cors = require('cors');
 const path = require('path');
@@ -207,9 +208,27 @@ app.get('/api/categories/:slug', async (req, res) => {
     }
 });
 
-// GET /api/categories/:slug/products — products in a category with filters
+// Helper to generate MD5 hash-based cache keys
+function getCacheKey(prefix, params, query) {
+    const sortedQuery = {};
+    Object.keys(query).sort().forEach(key => {
+        if (query[key] !== undefined && query[key] !== null) {
+            sortedQuery[key] = query[key];
+        }
+    });
+    const hash = crypto.createHash('md5').update(JSON.stringify({ params, query: sortedQuery })).digest('hex');
+    return `${prefix}:${hash}`;
+}
+
+// GET /api/categories/:slug/products — products in a category with unified filters
 app.get('/api/categories/:slug/products', async (req, res) => {
     try {
+        const cacheKey = getCacheKey('products:cat:' + req.params.slug, req.params, req.query);
+        const cached = cacheService.get(cacheKey);
+        if (cached) {
+            return res.json(cached);
+        }
+
         const category = await categoryService.getCategoryBySlug(req.params.slug);
         if (!category) {
             return res.status(404).json({ error: 'Category not found' });
@@ -223,14 +242,34 @@ app.get('/api/categories/:slug/products', async (req, res) => {
             brand: req.query.brand || null,
             min_price: req.query.min_price ? parseFloat(req.query.min_price) : null,
             max_price: req.query.max_price ? parseFloat(req.query.max_price) : null,
-            in_stock: req.query.in_stock === 'true'
+            in_stock: req.query.in_stock === 'true',
+            min_stores: req.query.min_stores ? parseInt(req.query.min_stores) : null
         };
 
         const result = await productService.browseByCategory(category.id, page, limit, sort, filters);
 
-        // Add breadcrumbs
+        // Fetch category-level facets dynamically (subcategories, brands, price range)
+        const facets = await filterService.getFiltersForCategory(req.params.slug, filters);
+        result.facets = facets;
+
+        // Add breadcrumbs and category metadata
         result.breadcrumbs = await categoryService.getBreadcrumbs(req.params.slug);
         result.category = { name: category.name, slug: category.slug, icon: category.icon, seo_title: category.seo_title, seo_description: category.seo_description };
+
+        // Save to cache
+        cacheService.set(cacheKey, result, 600); // 10 minutes TTL
+
+        // Telemetry dispatch
+        let hasFilters = false;
+        if (filters.brand || filters.min_price || filters.max_price || filters.in_stock || filters.subcategory_id || filters.min_stores) {
+            hasFilters = true;
+        }
+        if (hasFilters) {
+            const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+            const ipHash = await rankingService.hashIp(ip);
+            const userAgent = req.headers['user-agent'] || 'unknown';
+            eventSystem.dispatch('FILTER_APPLIED', { ipHash, userAgent }, { filters });
+        }
 
         res.json(result);
     } catch (err) {
@@ -239,9 +278,15 @@ app.get('/api/categories/:slug/products', async (req, res) => {
     }
 });
 
-// GET /api/subcategories/:slug/products
+// GET /api/subcategories/:slug/products — subcategory products with dynamic facets
 app.get('/api/subcategories/:slug/products', async (req, res) => {
     try {
+        const cacheKey = getCacheKey('products:sub:' + req.params.slug, req.params, req.query);
+        const cached = cacheService.get(cacheKey);
+        if (cached) {
+            return res.json(cached);
+        }
+
         const sub = await categoryService.getSubcategoryBySlug(req.params.slug);
         if (!sub) {
             return res.status(404).json({ error: 'Subcategory not found' });
@@ -254,19 +299,20 @@ app.get('/api/subcategories/:slug/products', async (req, res) => {
             brand: req.query.brand || null,
             min_price: req.query.min_price ? parseFloat(req.query.min_price) : null,
             max_price: req.query.max_price ? parseFloat(req.query.max_price) : null,
-            in_stock: req.query.in_stock === 'true'
+            in_stock: req.query.in_stock === 'true',
+            min_stores: req.query.min_stores ? parseInt(req.query.min_stores) : null
         };
 
         // Extract dynamic attribute filters
         for (const [key, val] of Object.entries(req.query)) {
-            if (!['page', 'limit', 'sort', 'brand', 'min_price', 'max_price', 'in_stock'].includes(key)) {
+            if (!['page', 'limit', 'sort', 'brand', 'min_price', 'max_price', 'in_stock', 'min_stores'].includes(key)) {
                 filters[key] = val;
             }
         }
 
         const result = await productService.browseBySubcategory(sub.id, page, limit, sort, filters);
 
-        // Fetch dynamic faceted filters
+        // Fetch dynamic faceted filters (brands, price, attributes from DB)
         const facets = await filterService.getFacetedFilters(sub.id, filters);
         result.facets = facets;
 
@@ -275,6 +321,26 @@ app.get('/api/subcategories/:slug/products', async (req, res) => {
         result.subcategory = { name: sub.name, slug: sub.slug, icon: sub.icon };
         result.category = sub.category;
 
+        // Save to cache
+        cacheService.set(cacheKey, result, 600); // 10 minutes TTL
+
+        // Telemetry dispatch
+        let hasFilters = false;
+        if (filters.brand || filters.min_price || filters.max_price || filters.in_stock || filters.min_stores) {
+            hasFilters = true;
+        }
+        for (const key of Object.keys(req.query)) {
+            if (!['page', 'limit', 'sort', 'brand', 'min_price', 'max_price', 'in_stock', 'min_stores'].includes(key)) {
+                hasFilters = true;
+            }
+        }
+        if (hasFilters) {
+            const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+            const ipHash = await rankingService.hashIp(ip);
+            const userAgent = req.headers['user-agent'] || 'unknown';
+            eventSystem.dispatch('FILTER_APPLIED', { ipHash, userAgent }, { filters });
+        }
+
         res.json(result);
     } catch (err) {
         console.error('Subcategory products error:', err);
@@ -282,28 +348,58 @@ app.get('/api/subcategories/:slug/products', async (req, res) => {
     }
 });
 
-// GET /api/filters/:categorySlug — dynamic filters for a category
+// GET /api/filters/:categorySlug — legacy category filters (with hash caching)
 app.get('/api/filters/:categorySlug', async (req, res) => {
     try {
-        const filters = await filterService.getFiltersForCategory(req.params.categorySlug);
-        if (!filters) {
+        const filters = {
+            subcategory_id: req.query.subcategory_id ? parseInt(req.query.subcategory_id) : null,
+            brand: req.query.brand || null,
+            min_price: req.query.min_price ? parseFloat(req.query.min_price) : null,
+            max_price: req.query.max_price ? parseFloat(req.query.max_price) : null,
+            in_stock: req.query.in_stock === 'true',
+            min_stores: req.query.min_stores ? parseInt(req.query.min_stores) : null
+        };
+        const cacheKey = getCacheKey('filters:cat:' + req.params.categorySlug, req.params, filters);
+        const cached = cacheService.get(cacheKey);
+        if (cached) return res.json(cached);
+
+        const result = await filterService.getFiltersForCategory(req.params.categorySlug, filters);
+        if (!result) {
             return res.status(404).json({ error: 'Category not found' });
         }
-        res.json(filters);
+        cacheService.set(cacheKey, result, 600);
+        res.json(result);
     } catch (err) {
         console.error('Filters error:', err);
         res.status(500).json({ error: err.message });
     }
 });
 
-// GET /api/filters/sub/:subcategorySlug — dynamic filters for a subcategory
+// GET /api/filters/sub/:subcategorySlug — legacy subcategory filters (with hash caching)
 app.get('/api/filters/sub/:subcategorySlug', async (req, res) => {
     try {
-        const filters = await filterService.getFiltersForSubcategory(req.params.subcategorySlug);
-        if (!filters) {
+        const filters = {
+            brand: req.query.brand || null,
+            min_price: req.query.min_price ? parseFloat(req.query.min_price) : null,
+            max_price: req.query.max_price ? parseFloat(req.query.max_price) : null,
+            in_stock: req.query.in_stock === 'true',
+            min_stores: req.query.min_stores ? parseInt(req.query.min_stores) : null
+        };
+        for (const [key, val] of Object.entries(req.query)) {
+            if (!['page', 'limit', 'sort', 'brand', 'min_price', 'max_price', 'in_stock', 'min_stores'].includes(key)) {
+                filters[key] = val;
+            }
+        }
+        const cacheKey = getCacheKey('filters:sub:' + req.params.subcategorySlug, req.params, filters);
+        const cached = cacheService.get(cacheKey);
+        if (cached) return res.json(cached);
+
+        const result = await filterService.getFiltersForSubcategory(req.params.subcategorySlug, filters);
+        if (!result) {
             return res.status(404).json({ error: 'Subcategory not found' });
         }
-        res.json(filters);
+        cacheService.set(cacheKey, result, 600);
+        res.json(result);
     } catch (err) {
         console.error('Subcategory filters error:', err);
         res.status(500).json({ error: err.message });

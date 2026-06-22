@@ -1,8 +1,8 @@
-# ⚡ Dawarly (دورلي) — Egypt's Price Comparison Engine
+# ⚡ Arkhsly (أرخصلي) — Egypt's Price Comparison Engine
 
 > **Compare prices across 13+ Egyptian stores — find the best deals on phones, laptops, electronics, and more.**
 
-Dawarly is a modern, production-ready, full-stack price comparison platform. The architecture is split into a user-facing **Next.js (App Router)** customer storefront and a **Node.js/Express** backend API that powers administrative control, event-driven telemetry, and automated Python-based web crawlers.
+Arkhsly is a modern, production-ready, full-stack price comparison platform. The architecture is split into a user-facing **Next.js (App Router)** customer storefront and a **Node.js/Express** backend API that powers administrative control, event-driven telemetry, and automated Python-based web crawlers.
 
 ---
 
@@ -31,6 +31,7 @@ Dawarly is a modern, production-ready, full-stack price comparison platform. The
 - **Framework:** Next.js 16 (App Router) + React 19
 - **Architecture:** Server-Side Rendering (SSR) and React Server Components (RSC) to maximize SEO indexability.
 - **Styling:** Tailwind CSS v4 + Lucide Icons.
+- **Interactive Filtering Sidebar:** Mobile-responsive slide-over drawer and desktop sidebar for filtering by subcategory (type), brands, price range, and dynamic specifications (RAM, storage).
 - **Bilingual Interface:** Dual English/Arabic layouts with persistent local storage state and automated RTL (`dir="rtl"`) text wrapping.
 
 ### REST API & Administration (Backend)
@@ -53,10 +54,9 @@ Dawarly is a modern, production-ready, full-stack price comparison platform. The
 ```
 store/
 ├── server.js                  # Express API server (main backend entry point)
-├── db_schema.py               # SQLite database setup, schema definitions, and loader
-├── database.db                # Active SQLite database (Git-ignored)
-├── package.json               # Backend Node.js dependencies
-├── requirements.txt           # Python dependency manifest
+├── db_schema.py               # PostgreSQL database initialization and schema creation
+├── package.json               # Backend Node.js dependencies and run scripts
+├── requirements.txt           # Python crawler dependency manifest
 ├── Dockerfile                 # Multi-stage production Docker build
 ├── .gitignore                 # Standard repository ignores (.next/, node_modules/, dist/, etc.)
 │
@@ -83,7 +83,7 @@ store/
 │   ├── eventSystem.js         # analytical events dispatcher
 │   ├── featureFlagService.js  # Runtime feature flag evaluator
 │   ├── productService.js      # Search, browse, and details queries
-│   ├── queueService.js        # SQLite-backed job queue manager
+│   ├── queueService.js        # Database-backed job queue manager
 │   └── rankingService.js      # Smart Rank calculation
 │
 ├── workers/                   # Background processors
@@ -98,6 +98,22 @@ store/
 │   ├── next.config.mjs        # Next.js configurations
 │   └── package.json           # Frontend dependency manifest
 ```
+
+---
+
+## 🗄 Database Architecture
+
+Arkhsly uses a production-ready relational schema optimized for multi-store price comparisons, hosted on **PostgreSQL 15+** via Docker Compose. The database wrapper (`services/db.js`) translates SQLite DDL and queries into PostgreSQL equivalents at runtime for seamless development compatibility.
+
+The core schema consists of the following tables:
+1. **`categories`**: Top-level retail categories (e.g. Mobiles, Electronics).
+2. **`subcategories`**: Categorized product sub-trees (e.g. Smartphones, Tablets, Smart Watches, Phone Accessories).
+3. **`brands`**: Normalized global manufacturer list (e.g. Samsung, Apple).
+4. **`product_families`**: Canonical groups for exact product models (e.g. iPhone 15 Pro).
+5. **`product_variants`**: Specific hardware configurations (e.g. storage capacity, RAM size, color, region).
+6. **`store_offers`**: Live prices, discount percentages, availability, and affiliate links per store for a variant.
+7. **`price_history`**: Snapshot history tracking price fluctuations for price charts.
+8. **`attribute_definitions` & `variant_attributes`**: Multi-valued attributes supporting dynamic filtering (e.g. 128GB, 256GB storage, 8GB RAM).
 
 ---
 
@@ -145,10 +161,10 @@ python -m playwright install chromium
 # Start PostgreSQL database service in background
 docker-compose up -d
 
-# Migrate SQLite database schema, constraints, data, and views to PostgreSQL
-python scripts/migrate_sqlite_to_postgres.py
+# Initialize PostgreSQL database schema, constraints, data, and views
+python db_schema.py
 
-# Seed categories if database is clean (not required if migrated)
+# Seed categories if database is clean (not required if database is initialized)
 # cd scripts
 # python seed_categories.py
 # cd ..
@@ -187,18 +203,16 @@ cd ..
 
 ## 💻 Development Workflow
 
-Start the entire application (backend API + Next.js storefront) with a single command:
+Start the entire application (backend API + Next.js storefront) concurrently with a single command:
 
 ```bash
-node server.js
+npm run dev
 ```
 
 This automatically launches:
 - **Express API** server at `http://localhost:3000`
-- **Next.js storefront** dev server at `http://localhost:3001` (spawned as a child process)
+- **Next.js storefront** dev server at `http://localhost:3001` (run concurrently using prefix script)
 - **Admin SPA Dashboard** at `http://localhost:3000/admin/`
-
-> **Note:** The Next.js frontend is auto-detected from the `frontend/` directory. If it's missing, only the backend starts.
 
 **Trigger Background Jobs:** Log in to the Admin Dashboard (`http://localhost:3000/admin/`) to run crawlers, manage database backups, adjust feature flags, or recalculate smart ranks.
 
@@ -231,10 +245,10 @@ The project contains a unified `Dockerfile` to build and deploy both the Node.js
 
 ```bash
 # Build the Docker image
-docker build -t dawarly .
+docker build -t arkhsly .
 
 # Run the container
-docker run -d -p 3000:3000 --name dawarly-instance dawarly
+docker run -d -p 3000:3000 --name arkhsly-instance arkhsly
 ```
 
 The Docker container runs database migrations, boots the Express API, and schedules background worker ticks.
@@ -254,6 +268,6 @@ You can inspect job execution states and durations live inside the Admin Console
 ## ✨ Core Features
 
 1. **Smart Product Merging:** Links similar models across stores (e.g. comparing iPhone 15 specs between Amazon and Noon) using model-key NLP matches.
-2. **Dynamic Faceting:** Calculates attributes (e.g. RAM, Storage, Screen Size) dynamically per subcategory based on product variants.
+2. **Dynamic Faceting & Sidebar Filtering:** Calculates and displays attributes (e.g. RAM, Storage Size, Brands, and Price range) dynamically per category and subcategory, allowing real-time customer filtering via URL search parameters.
 3. **Structured Telemetry Logs:** Fully captures clicks, views, and search trends in compliance with Express response tracking.
 4. **Structured Errors:** Decoupled errors system (`DatabaseError`, `ValidationError`) protecting the code tracing boundaries in production.

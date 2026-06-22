@@ -1,12 +1,12 @@
-# Dawarly Platform Infrastructure Architecture Specification
+# Arkhsly Platform Infrastructure Architecture Specification
 
-This document defines the production-grade architectural standards, designs, and migration pathways for the Dawarly platform's core infrastructure.
+This document defines the production-grade architectural standards, designs, and migration pathways for the Arkhsly platform's core infrastructure.
 
 ---
 
 ## 1. Centralized Event-Driven Architecture
 
-To decouple core operations (e.g., telemetry, auditing, cache invalidation, search syncing), Dawarly implements a centralized, in-process Event Dispatcher.
+To decouple core operations (e.g., telemetry, auditing, cache invalidation, search syncing), Arkhsly implements a centralized, in-process Event Dispatcher.
 
 ### Event Schema Standard
 All events dispatched in the platform must conform to the following JSON schema:
@@ -138,7 +138,7 @@ Full cache regeneration is resource-intensive. The platform uses targeted cache 
 
 ## 7. Search Separation Roadmap (FTS5 to Typesense/Elasticsearch)
 
-SQLite FTS5 is a single-node search system. As Dawarly grows, search operations must migrate to a dedicated engine.
+SQLite FTS5 is a single-node search system. As Arkhsly grows, search operations must migrate to a dedicated engine.
 
 ### Migration Phases
 1. **Shadow Indexing**: Write a background pipeline that mirrors SQLite product data into **Typesense** or **Elasticsearch** in real-time.

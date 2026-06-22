@@ -135,7 +135,7 @@ def calculate_weighted_similarity(p1: dict, p2: dict) -> float:
 # 3. Extraction Engine
 # ==============================================================================
 
-def extract_product_attributes(name: str):
+def extract_product_attributes(name: str, specs_str: str = None):
     name_clean = clean_arabic_numbers(name.lower())
     
     network = "4G"
@@ -143,28 +143,126 @@ def extract_product_attributes(name: str):
         network = "5G"
         
     ram = None
-    ram_match_a = re.search(r'\b(1|2|3|4|6|8|12|16|18|24|32|64)\s*(?:gb\s*ram|ram|جيجا\s*رام|رام)', name_clean)
-    ram_match_b = re.search(r'\b(?:رامات|رام|ram)\s*(1|2|3|4|6|8|12|16|18|24|32|64)\b', name_clean)
-    if ram_match_a:
-        ram = int(ram_match_a.group(1))
-    elif ram_match_b:
-        ram = int(ram_match_b.group(1))
-        
     storage = None
-    tb_match = re.search(r'\b(1|2)\s*(?:tb|تيرابايت|تيرا)', name_clean)
-    if tb_match:
-        storage = int(tb_match.group(1)) * 1024
-    else:
-        gb_match = re.search(r'\b(8|16|32|64|128|256|512)\s*(?:gb|جيجا|جيجابايت|g)\b', name_clean)
-        if gb_match:
-            storage = int(gb_match.group(1))
-            
     color_en, color_ar = "Standard", "قياسي"
-    for en, ar, keywords in COLOR_MAP:
-        if any(kw in name_clean for kw in keywords):
-            color_en, color_ar = en.title(), ar
-            break
+    
+    has_storage_from_specs = False
+    has_ram_from_specs = False
+    has_network_from_specs = False
+    
+    # Try parsing from structured specs first
+    if specs_str:
+        try:
+            raw_specs = json.loads(specs_str)
+            if isinstance(raw_specs, dict):
+                # Normalize keys to lowercase for robust matching
+                specs = {k.lower().strip(): v for k, v in raw_specs.items()}
+                
+                # 1. Parse RAM
+                ram_keys = ["ذاكرة الرام", "الرام", "ram", "ذاكرة الوصول العشوائي", "الذاكرة العشوائية"]
+                ram_val = None
+                for k in ram_keys:
+                    if k in specs:
+                        ram_val = str(specs[k]).lower()
+                        break
+                if ram_val:
+                    ram_val = clean_arabic_numbers(ram_val)
+                    m = re.search(r'\b(1|2|3|4|6|8|12|16|18|24|32|64)\s*(?:gb|ram|جيجا|جيجابايت|g)?\b', ram_val)
+                    if m:
+                        ram = int(m.group(1))
+                        has_ram_from_specs = True
+                        
+                # 2. Parse Storage
+                storage_keys = ["الذاكرة الداخلية", "سعة التخزين", "storage", "المساحة الداخلية", "حجم الذاكرة", "internal"]
+                storage_val = None
+                for k in storage_keys:
+                    if k in specs:
+                        storage_val = str(specs[k]).lower()
+                        break
+                if storage_val:
+                    storage_val = clean_arabic_numbers(storage_val)
+                    if any(x in storage_val for x in ["tb", "تيرابايت", "تيرا", "1 تيرابايت"]):
+                        m = re.search(r'\b(1|2)\s*(?:tb|تيرابايت|تيرا)?\b', storage_val)
+                        if m:
+                            storage = int(m.group(1)) * 1024
+                            has_storage_from_specs = True
+                    else:
+                        m = re.search(r'\b(8|16|32|64|128|256|512)\s*(?:gb|جيجا|جيجابايت|g)?\b', storage_val)
+                        if m:
+                            storage = int(m.group(1))
+                            has_storage_from_specs = True
+                            
+                # 3. Parse Color
+                color_keys = ["اللون", "لون المنتج", "color", "اللون المتاح", "colors"]
+                color_val = None
+                for k in color_keys:
+                    if k in specs:
+                        color_val = str(specs[k]).lower()
+                        break
+                if color_val:
+                    color_val = clean_arabic_numbers(color_val)
+                    for en, ar, keywords in COLOR_MAP:
+                        if any(kw in color_val for kw in keywords):
+                            color_en, color_ar = en.title(), ar
+                            break
+
+                # 4. Parse Network
+                network_keys = ["الشبكة", "network", "شبكة الاتصال", "الجيل"]
+                network_val = None
+                for k in network_keys:
+                    if k in specs:
+                        network_val = str(specs[k]).lower()
+                        break
+                if network_val:
+                    if "5g" in network_val:
+                        network = "5G"
+                        has_network_from_specs = True
+                    elif "4g" in network_val:
+                        network = "4G"
+                        has_network_from_specs = True
+                    elif "3g" in network_val:
+                        network = "3G"
+                        has_network_from_specs = True
+                        
+        except Exception as e:
+            print(f"Error parsing specs JSON: {e}")
             
+    # Fallback to title parsing if not fully parsed from specs
+    if not (has_storage_from_specs and has_ram_from_specs):
+        if not has_ram_from_specs:
+            ram_match_a = re.search(r'\b(1|2|3|4|6|8|12|16|18|24|32|64)\s*(?:gb\s*ram|ram|جيجا\s*رام|رام)', name_clean)
+            ram_match_b = re.search(r'\b(?:رامات|رام|ram)\s*(1|2|3|4|6|8|12|16|18|24|32|64)\b', name_clean)
+            if ram_match_a:
+                ram = int(ram_match_a.group(1))
+            elif ram_match_b:
+                ram = int(ram_match_b.group(1))
+                
+        if not has_storage_from_specs:
+            tb_match = re.search(r'\b(1|2)\s*(?:tb|تيرابايت|تيرا)', name_clean)
+            if tb_match:
+                storage = int(tb_match.group(1)) * 1024
+            else:
+                gb_match = re.search(r'\b(8|16|32|64|128|256|512)\s*(?:gb|جيجا|جيجابايت|g)\b', name_clean)
+                if gb_match:
+                    storage = int(gb_match.group(1))
+                    
+        if color_en == "Standard":
+            for en, ar, keywords in COLOR_MAP:
+                if any(kw in name_clean for kw in keywords):
+                    color_en, color_ar = en.title(), ar
+                    break
+                    
+    # Calculate granular confidence score
+    if has_storage_from_specs and has_ram_from_specs:
+        if has_network_from_specs:
+            confidence_score = 1.0
+        else:
+            confidence_score = 0.95
+    elif has_storage_from_specs:
+        confidence_score = 0.90
+    else:
+        confidence_score = 0.85
+        
     region = "International"
     if any(kw in name_clean for kw in ["middle east", "الشرق الاوسط", "local"]):
         region = "MEA"
@@ -179,7 +277,8 @@ def extract_product_attributes(name: str):
         'network_gen': network,
         'color_en': color_en,
         'color_ar': color_ar,
-        'region_version': region
+        'region_version': region,
+        'confidence_score': confidence_score
     }
 
 def clean_family_name(name: str) -> str:
@@ -252,7 +351,7 @@ def process_merge_pipeline():
     # Query all raw products that need sorting
     print(f"[{datetime.now().strftime('%H:%M:%S')}] Loading raw products...")
     cur.execute("""
-        SELECT id, name, brand, brand_id, subcategory_id, image_url, name_en, name_ar, description_en, description_ar
+        SELECT id, name, brand, brand_id, subcategory_id, image_url, name_en, name_ar, description_en, description_ar, specs
         FROM products
     """)
     raw_products = cur.fetchall()
@@ -308,7 +407,7 @@ def process_merge_pipeline():
             actual_brand_id = cur.fetchone()[0]
             
         # 2. Extract specific variant traits
-        traits = extract_product_attributes(p_name)
+        traits = extract_product_attributes(p_name, p['specs'])
         
         # 3. Core Matcher: Pruned candidates using Word Tokens Intersection
         search_name_en = clean_family_name(p['name_en'] or p_name)
@@ -405,16 +504,47 @@ def process_merge_pipeline():
             total_processed += 1
             continue
 
-        sku = f"VAR-{family_id}-{traits['storage_gb'] or 0}-{traits['ram_gb'] or 0}-{traits['network_gen']}-{slugify(traits['color_en'])}"
+        sku_parts = [
+            f"VAR-{family_id}",
+            str(traits['storage_gb'] or 0),
+            str(traits['ram_gb'] or 0),
+            traits['network_gen'] or 'unknown'
+        ]
+        if traits['region_version'] and traits['region_version'].lower() != 'international':
+            sku_parts.append(slugify(traits['region_version']))
+        sku = "-".join(sku_parts)
         
+        # Check if variant already exists based on composite key (family_id, storage_gb, ram_gb, network_gen, region_version)
+        region_db = traits['region_version']
+        if region_db == 'International':
+            region_db = None
+
         cur.execute("""
-            INSERT INTO product_variants (family_id, sku, storage_gb, ram_gb, network_gen, color_en, color_ar, region_version, image_url)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(sku) DO UPDATE SET
-                image_url = COALESCE(excluded.image_url, product_variants.image_url)
-            RETURNING id
-        """, (family_id, sku, traits['storage_gb'], traits['ram_gb'], traits['network_gen'], traits['color_en'], traits['color_ar'], traits['region_version'], p_img))
-        variant_id = cur.fetchone()[0]
+            SELECT id FROM product_variants
+            WHERE family_id = ? 
+              AND COALESCE(storage_gb, -1) = ? 
+              AND COALESCE(ram_gb, -1) = ? 
+              AND COALESCE(network_gen, '') = ? 
+              AND COALESCE(region_version, '') = ?
+        """, (family_id, traits['storage_gb'] or -1, traits['ram_gb'] or -1, traits['network_gen'] or '', region_db or ''))
+        existing_var = cur.fetchone()
+
+        if existing_var:
+            variant_id = existing_var[0]
+            cur.execute("""
+                UPDATE product_variants
+                SET sku = ?,
+                    image_url = COALESCE(?, image_url),
+                    confidence_score = CASE WHEN confidence_score IS NULL THEN ? WHEN ? > confidence_score THEN ? ELSE confidence_score END
+                WHERE id = ?
+            """, (sku, p_img, traits['confidence_score'], traits['confidence_score'], traits['confidence_score'], variant_id))
+        else:
+            cur.execute("""
+                INSERT INTO product_variants (family_id, sku, storage_gb, ram_gb, network_gen, region_version, image_url, confidence_score)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                RETURNING id
+            """, (family_id, sku, traits['storage_gb'], traits['ram_gb'], traits['network_gen'], region_db, p_img, traits['confidence_score']))
+            variant_id = cur.fetchone()[0]
         variants_mapped += 1
         
         # Populate variant_attributes table for dynamic filtering support
@@ -459,16 +589,18 @@ def process_merge_pipeline():
         
         for pr in prices:
             cur.execute("""
-                INSERT INTO store_offers (variant_id, store_id, raw_title, price_egp, original_price_egp, discount_pct, availability, product_url, image_url, scraped_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(variant_id, store_id) DO UPDATE SET
+                INSERT INTO store_offers (variant_id, store_id, raw_title, price_egp, original_price_egp, discount_pct, availability, product_url, image_url, scraped_at, color_en, color_ar, confidence_score)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(variant_id, store_id, COALESCE(color_en, '')) DO UPDATE SET
                     price_egp = excluded.price_egp,
                     original_price_egp = excluded.original_price_egp,
                     discount_pct = excluded.discount_pct,
                     availability = excluded.availability,
                     product_url = excluded.product_url,
-                    scraped_at = excluded.scraped_at
-            """, (variant_id, pr['store_id'], p_name, pr['price_egp'], pr['original_price_egp'], pr['discount_pct'], pr['availability'], pr['product_url'], p_img, pr['scraped_at']))
+                    scraped_at = excluded.scraped_at,
+                    color_ar = excluded.color_ar,
+                    confidence_score = excluded.confidence_score
+            """, (variant_id, pr['store_id'], p_name, pr['price_egp'], pr['original_price_egp'], pr['discount_pct'], pr['availability'], pr['product_url'], p_img, pr['scraped_at'], traits['color_en'], traits['color_ar'], best_score))
             
             cur.execute("""
                 INSERT INTO price_history (variant_id, store_id, price_egp, recorded_at)

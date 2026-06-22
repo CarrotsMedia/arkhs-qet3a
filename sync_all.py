@@ -149,7 +149,7 @@ async def run_single_scraper(store_slug: str, config: dict, semaphore: asyncio.S
 
 
 async def main_async():
-    parser = argparse.ArgumentParser(description="Dawarly Scraper Orchestrator")
+    parser = argparse.ArgumentParser(description="Arkhsly Scraper Orchestrator")
     parser.add_argument("--store", nargs="+", help="Specific store slug(s) to run")
     parser.add_argument("--concurrency", type=int, default=3, help="Max parallel scrapers to run")
     parser.add_argument("--no-cleanup", action="store_true", help="Do not delete raw scraper JSON output files")

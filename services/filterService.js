@@ -119,6 +119,18 @@ class FilterService {
             if (activeFilters.in_stock) {
                 sql += ` AND so.availability = 'in_stock'`;
             }
+            if (activeFilters.min_stores && parseInt(activeFilters.min_stores) > 1) {
+                sql += ` AND pf.id IN (
+                    SELECT pv2.family_id 
+                    FROM store_offers so2 
+                    JOIN product_variants pv2 ON so2.variant_id = pv2.id 
+                    JOIN stores s2 ON so2.store_id = s2.id 
+                    WHERE so2.is_active = 1 AND s2.is_enabled = 1
+                    GROUP BY pv2.family_id 
+                    HAVING COUNT(DISTINCT so2.store_id) >= ?
+                )`;
+                params.push(parseInt(activeFilters.min_stores));
+            }
 
             // Apply other active dynamic filters values (EXCLUDING itself)
             joinCounter = 0;
@@ -211,6 +223,18 @@ class FilterService {
             if (activeFilters.in_stock) {
                 brandSql += ` AND so.availability = 'in_stock'`;
             }
+            if (activeFilters.min_stores && parseInt(activeFilters.min_stores) > 1) {
+                brandSql += ` AND pf.id IN (
+                    SELECT pv2.family_id 
+                    FROM store_offers so2 
+                    JOIN product_variants pv2 ON so2.variant_id = pv2.id 
+                    JOIN stores s2 ON so2.store_id = s2.id 
+                    WHERE so2.is_active = 1 AND s2.is_enabled = 1
+                    GROUP BY pv2.family_id 
+                    HAVING COUNT(DISTINCT so2.store_id) >= ?
+                )`;
+                brandParams.push(parseInt(activeFilters.min_stores));
+            }
 
             // Apply active dynamic filters values
             joinCounter = 0;
@@ -224,7 +248,7 @@ class FilterService {
             brandSql += ` GROUP BY pf.brand_id`;
 
             const brandCounts = {};
-            const rows = this.db.prepare(brandSql).all(...brandParams);
+            const rows = await this.db.prepare(brandSql).all(...brandParams);
             for (const row of rows) {
                 brandCounts[row.brand_id] = row.count;
             }
@@ -251,14 +275,30 @@ class FilterService {
         // 5. Get absolute Min and Max Price ranges for subcategory
         let priceRange = { min_price: 0, max_price: 100000 };
         try {
-            const row = await this.db.prepare(`
+            let priceSql = `
                 SELECT MIN(so.price_egp) as min_price, MAX(so.price_egp) as max_price
                 FROM store_offers so
                 JOIN product_variants pv ON so.variant_id = pv.id
                 JOIN product_families pf ON pv.family_id = pf.id
                 JOIN stores s ON so.store_id = s.id AND s.is_enabled = 1
                 WHERE pf.subcategory_id = ? AND so.is_active = 1
-            `).get(subcategoryId);
+            `;
+            const priceParams = [subcategoryId];
+
+            if (activeFilters.min_stores && parseInt(activeFilters.min_stores) > 1) {
+                priceSql += ` AND pf.id IN (
+                    SELECT pv2.family_id 
+                    FROM store_offers so2 
+                    JOIN product_variants pv2 ON so2.variant_id = pv2.id 
+                    JOIN stores s2 ON so2.store_id = s2.id 
+                    WHERE so2.is_active = 1 AND s2.is_enabled = 1
+                    GROUP BY pv2.family_id 
+                    HAVING COUNT(DISTINCT so2.store_id) >= ?
+                )`;
+                priceParams.push(parseInt(activeFilters.min_stores));
+            }
+
+            const row = await this.db.prepare(priceSql).get(...priceParams);
             if (row && row.min_price !== null) {
                 priceRange = { min_price: row.min_price, max_price: row.max_price };
             }
@@ -269,6 +309,209 @@ class FilterService {
         return {
             attributes: facetedAttributes,
             brands: brandOptions,
+            price_range: priceRange
+        };
+    }
+
+    /**
+     * Get dynamic filters for a subcategory (wrapper around faceted filters)
+     */
+    async getFiltersForSubcategory(slug, activeFilters = {}) {
+        const sub = await this.db.prepare(`
+            SELECT s.id, s.name, s.slug, s.icon, s.category_id
+            FROM subcategories s
+            WHERE s.slug = ? AND s.is_active = 1
+        `).get(slug);
+        if (!sub) return null;
+        
+        const facets = await this.getFacetedFilters(sub.id, activeFilters);
+        return {
+            subcategory: { id: sub.id, name: sub.name, slug: sub.slug, icon: sub.icon },
+            ...facets
+        };
+    }
+
+    /**
+     * Get filters for a parent category (subcategories list, brand options, price range)
+     */
+    async getFiltersForCategory(slug, activeFilters = {}) {
+        const category = await this.db.prepare(`
+            SELECT c.id, c.name, c.name_ar, c.slug FROM categories c WHERE c.slug = ? AND c.is_active = 1
+        `).get(slug);
+        if (!category) return null;
+
+        // 1. Fetch subcategories with counts under this category, applying active filters
+        let subcatSql = `
+            SELECT s.id, s.slug, s.name, s.icon, COUNT(DISTINCT pf.id) as count
+            FROM subcategories s
+            LEFT JOIN product_families pf ON pf.subcategory_id = s.id
+            LEFT JOIN product_variants pv ON pv.family_id = pf.id
+            LEFT JOIN store_offers so ON so.variant_id = pv.id AND so.is_active = 1
+            LEFT JOIN stores st ON so.store_id = st.id AND st.is_enabled = 1
+            WHERE s.category_id = ? AND s.is_active = 1
+        `;
+        const subcatParams = [category.id];
+
+        if (activeFilters.brand) {
+            const brands = Array.isArray(activeFilters.brand) 
+                ? activeFilters.brand 
+                : String(activeFilters.brand).split(',').map(b => b.trim());
+            const placeholders = brands.map(() => '?').join(',');
+            const brandRows = await this.db.prepare(`SELECT id FROM brands WHERE LOWER(name_en) IN (${placeholders}) OR LOWER(name_ar) IN (${placeholders})`).all(...brands.map(b => b.toLowerCase()), ...brands.map(b => b.toLowerCase()));
+            if (brandRows.length > 0) {
+                const brandPlaceholders = brandRows.map(() => '?').join(',');
+                subcatSql += ` AND pf.brand_id IN (${brandPlaceholders})`;
+                subcatParams.push(...brandRows.map(r => r.id));
+            }
+        }
+        if (activeFilters.min_price) {
+            subcatSql += ` AND so.price_egp >= ?`;
+            subcatParams.push(activeFilters.min_price);
+        }
+        if (activeFilters.max_price) {
+            subcatSql += ` AND so.price_egp <= ?`;
+            subcatParams.push(activeFilters.max_price);
+        }
+        if (activeFilters.in_stock) {
+            subcatSql += ` AND so.availability = 'in_stock'`;
+        }
+        if (activeFilters.min_stores && parseInt(activeFilters.min_stores) > 1) {
+            subcatSql += ` AND pf.id IN (
+                SELECT pv2.family_id 
+                FROM store_offers so2 
+                JOIN product_variants pv2 ON so2.variant_id = pv2.id 
+                JOIN stores s2 ON so2.store_id = s2.id 
+                WHERE so2.is_active = 1 AND s2.is_enabled = 1
+                GROUP BY pv2.family_id 
+                HAVING COUNT(DISTINCT so2.store_id) >= ?
+            )`;
+            subcatParams.push(parseInt(activeFilters.min_stores));
+        }
+
+        subcatSql += ` GROUP BY s.id, s.slug, s.name, s.icon ORDER BY s.sort_order ASC`;
+        const subcategories = await this.db.prepare(subcatSql).all(...subcatParams);
+
+        // 2. Fetch brands with counts, applying active filters (All-But-Itself: except brand itself)
+        let brandSql = `
+            SELECT pf.brand_id, b.name_en, b.name_ar, COUNT(DISTINCT pv.id) as count
+            FROM product_variants pv
+            JOIN product_families pf ON pv.family_id = pf.id
+            JOIN store_offers so ON so.variant_id = pv.id AND so.is_active = 1
+            JOIN stores s ON so.store_id = s.id AND s.is_enabled = 1
+            JOIN brands b ON pf.brand_id = b.id
+            JOIN subcategories sc ON pf.subcategory_id = sc.id
+            WHERE sc.category_id = ?
+        `;
+        const brandParams = [category.id];
+
+        if (activeFilters.subcategory_id) {
+            brandSql += ` AND pf.subcategory_id = ?`;
+            brandParams.push(activeFilters.subcategory_id);
+        }
+        if (activeFilters.min_price) {
+            brandSql += ` AND so.price_egp >= ?`;
+            brandParams.push(activeFilters.min_price);
+        }
+        if (activeFilters.max_price) {
+            brandSql += ` AND so.price_egp <= ?`;
+            brandParams.push(activeFilters.max_price);
+        }
+        if (activeFilters.in_stock) {
+            brandSql += ` AND so.availability = 'in_stock'`;
+        }
+        if (activeFilters.min_stores && parseInt(activeFilters.min_stores) > 1) {
+            brandSql += ` AND pf.id IN (
+                SELECT pv2.family_id 
+                FROM store_offers so2 
+                JOIN product_variants pv2 ON so2.variant_id = pv2.id 
+                JOIN stores s2 ON so2.store_id = s2.id 
+                WHERE so2.is_active = 1 AND s2.is_enabled = 1
+                GROUP BY pv2.family_id 
+                HAVING COUNT(DISTINCT so2.store_id) >= ?
+            )`;
+            brandParams.push(parseInt(activeFilters.min_stores));
+        }
+
+        brandSql += ` GROUP BY pf.brand_id, b.name_en, b.name_ar ORDER BY count DESC`;
+        const brandRows = await this.db.prepare(brandSql).all(...brandParams);
+
+        // Get all possible brands in this category to format response cleanly
+        const possibleBrands = await this.db.prepare(`
+            SELECT DISTINCT b.id, b.name_en, b.name_ar
+            FROM brands b
+            JOIN product_families pf ON pf.brand_id = b.id
+            JOIN subcategories sc ON pf.subcategory_id = sc.id
+            WHERE sc.category_id = ?
+            ORDER BY b.name_en ASC
+        `).all(category.id);
+
+        const brandCounts = {};
+        for (const row of brandRows) {
+            brandCounts[row.brand_id] = row.count;
+        }
+
+        const activeBrands = activeFilters.brand 
+            ? (Array.isArray(activeFilters.brand) ? activeFilters.brand : String(activeFilters.brand).split(',').map(b => b.trim().toLowerCase()))
+            : [];
+
+        const brandsFormatted = possibleBrands.map(b => {
+            const count = brandCounts[b.id] || 0;
+            const isSelected = activeBrands.includes(b.name_en.toLowerCase()) || activeBrands.includes(b.name_ar.toLowerCase());
+            return {
+                name_en: b.name_en,
+                name_ar: b.name_ar,
+                count,
+                selected: isSelected,
+                disabled: count === 0 && !isSelected
+            };
+        }).sort((a, b) => b.count - a.count);
+
+        // 3. Get absolute Min and Max Price ranges for category
+        let priceRange = { min_price: 0, max_price: 100000 };
+        try {
+            let priceSql = `
+                SELECT MIN(so.price_egp) as min_price, MAX(so.price_egp) as max_price
+                FROM store_offers so
+                JOIN product_variants pv ON so.variant_id = pv.id
+                JOIN product_families pf ON pv.family_id = pf.id
+                JOIN subcategories sc ON pf.subcategory_id = sc.id
+                JOIN stores s ON so.store_id = s.id AND s.is_enabled = 1
+                WHERE sc.category_id = ? AND so.is_active = 1
+            `;
+            const priceParams = [category.id];
+
+            if (activeFilters.min_stores && parseInt(activeFilters.min_stores) > 1) {
+                priceSql += ` AND pf.id IN (
+                    SELECT pv2.family_id 
+                    FROM store_offers so2 
+                    JOIN product_variants pv2 ON so2.variant_id = pv2.id 
+                    JOIN stores s2 ON so2.store_id = s2.id 
+                    WHERE so2.is_active = 1 AND s2.is_enabled = 1
+                    GROUP BY pv2.family_id 
+                    HAVING COUNT(DISTINCT so2.store_id) >= ?
+                )`;
+                priceParams.push(parseInt(activeFilters.min_stores));
+            }
+
+            const row = await this.db.prepare(priceSql).get(...priceParams);
+            if (row && row.min_price !== null) {
+                priceRange = { min_price: row.min_price, max_price: row.max_price };
+            }
+        } catch (e) {
+            console.error('Price range query failed for category:', e.message);
+        }
+
+        return {
+            category: { id: category.id, name: category.name, name_ar: category.name_ar, slug: category.slug },
+            subcategories: subcategories.map(s => ({
+                id: s.id,
+                slug: s.slug,
+                name: s.name,
+                icon: s.icon,
+                count: s.count || 0,
+                selected: activeFilters.subcategory_id === s.id
+            })),
+            brands: brandsFormatted,
             price_range: priceRange
         };
     }

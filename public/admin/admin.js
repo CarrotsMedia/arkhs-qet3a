@@ -1,5 +1,5 @@
 /**
- * Dawarly Admin Panel — Core SPA Framework
+ * Arkhsly Admin Panel — Core SPA Framework
  * =======================================
  * Minimal, modular, zero-dependency SPA Router & State Controller.
  */
@@ -7,7 +7,7 @@
 // Global Translations Dictionary (English & Arabic)
 export const translations = {
     en: {
-        appName: "Dawarly Operations",
+        appName: "Arkhsly Operations",
         dashboard: "Dashboard",
         categories: "Categories",
         products: "Products",
@@ -21,7 +21,7 @@ export const translations = {
         logout: "Logout",
         systemOnline: "System Online",
         search: "Search...",
-        loading: "Loading Dawarly Operations...",
+        loading: "Loading Arkhsly Operations...",
         welcomeBack: "Welcome Back",
         role: "Role",
         langLabel: "العربية",
@@ -29,7 +29,7 @@ export const translations = {
         unknownUser: "Administrator"
     },
     ar: {
-        appName: "عمليات دورلي",
+        appName: "عمليات أرخصلي",
         dashboard: "لوحة التحكم",
         categories: "الأقسام",
         products: "المنتجات",

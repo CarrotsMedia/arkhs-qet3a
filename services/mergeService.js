@@ -282,7 +282,7 @@ class MergeService {
         for (const fam of families) {
             // Load variants
             const variants = await this.db.prepare(`
-                SELECT id, sku, storage_gb, ram_gb, network_gen, color_en, color_ar, region_version, image_url
+                SELECT id, sku, storage_gb, ram_gb, network_gen, color_en, color_ar, region_version, image_url, confidence_score
                 FROM product_variants
                 WHERE family_id = ?
             `).all(fam.id);
@@ -299,7 +299,8 @@ class MergeService {
                 // Load active store offers
                 v.offers = await this.db.prepare(`
                     SELECT so.id, so.store_id, st.name as store_name, st.slug as store_slug,
-                           so.price_egp, so.original_price_egp, so.discount_pct, so.availability, so.product_url, so.scraped_at
+                           so.price_egp, so.original_price_egp, so.discount_pct, so.availability, so.product_url, so.scraped_at,
+                           so.color_en, so.color_ar, so.confidence_score
                     FROM store_offers so
                     JOIN stores st ON so.store_id = st.id
                     WHERE so.variant_id = ? AND so.is_active = 1
@@ -330,12 +331,12 @@ class MergeService {
         // Match source variants with target variants
         for (const sv of source.variants) {
             // Predict if it merges into an existing variant or moves as a new one
-            // A variant matches if storage, ram, network generation, and color (English) are identical.
+            // A variant matches if storage, ram, network generation, and region version are identical.
             const matchedTv = target.variants.find(tv => 
                 tv.storage_gb === sv.storage_gb &&
                 tv.ram_gb === sv.ram_gb &&
-                String(tv.network_gen).toLowerCase() === String(sv.network_gen).toLowerCase() &&
-                String(tv.color_en).toLowerCase() === String(sv.color_en).toLowerCase()
+                String(tv.network_gen || '').toLowerCase() === String(sv.network_gen || '').toLowerCase() &&
+                String(tv.region_version || '').toLowerCase() === String(sv.region_version || '').toLowerCase()
             );
 
             if (matchedTv) {
@@ -348,7 +349,16 @@ class MergeService {
                 });
             } else {
                 // Variant does not exist: it will be moved & SKU updated
-                const newSku = `VAR-${target.id}-${sv.storage_gb || 0}-${sv.ram_gb || 0}-${sv.network_gen || 'unknown'}-${(sv.color_en || 'standard').toLowerCase().replace(/\s+/g, '-')}`;
+                const skuParts = [
+                    `VAR-${target.id}`,
+                    sv.storage_gb || 0,
+                    sv.ram_gb || 0,
+                    sv.network_gen || 'unknown'
+                ];
+                if (sv.region_version && sv.region_version.toLowerCase() !== 'international') {
+                    skuParts.push(sv.region_version.toLowerCase().replace(/\s+/g, '-'));
+                }
+                const newSku = skuParts.join('-');
                 mergedVariants.push({
                     action: 'move_variant',
                     sourceVariant: { id: sv.id, sku: sv.sku },
@@ -425,37 +435,41 @@ class MergeService {
                 const matchedTv = targetVariants.find(tv => 
                     tv.storage_gb === sv.storage_gb &&
                     tv.ram_gb === sv.ram_gb &&
-                    String(tv.network_gen).toLowerCase() === String(sv.network_gen).toLowerCase() &&
-                    String(tv.color_en).toLowerCase() === String(sv.color_en).toLowerCase()
+                    String(tv.network_gen || '').toLowerCase() === String(sv.network_gen || '').toLowerCase() &&
+                    String(tv.region_version || '').toLowerCase() === String(sv.region_version || '').toLowerCase()
                 );
 
                 if (matchedTv) {
                     // SKU/Config Conflict: Merge Variant into Existing Target Variant
                     const targetVariantId = matchedTv.id;
 
+                    // Update variant confidence score to the maximum of target and source
+                    const maxConfidence = Math.max(matchedTv.confidence_score || 0, sv.confidence_score || 0);
+                    await this.db.prepare('UPDATE product_variants SET confidence_score = ? WHERE id = ?').run(maxConfidence, targetVariantId);
+
                     // A. Move active store offers
                     for (const offer of svData.offers) {
-                        // Check if target variant already has an offer from this store (both active and inactive)
+                        // Check if target variant already has an offer from this store and with the same color
                         const existingTargetOffer = await this.db.prepare(`
                             SELECT * FROM store_offers 
-                            WHERE variant_id = ? AND store_id = ?
-                        `).get(targetVariantId, offer.store_id);
+                            WHERE variant_id = ? AND store_id = ? AND COALESCE(color_en, '') = COALESCE(?, '')
+                        `).get(targetVariantId, offer.store_id, offer.color_en);
 
                         if (existingTargetOffer) {
                             if (offer.price_egp < existingTargetOffer.price_egp) {
                                 // Cheaper source offer: Move target offer to source variant (deactivated) and move cheaper source offer to target variant.
-                                // We delete the target offer first to avoid violating the UNIQUE constraint on (variant_id, store_id),
+                                // We delete the target offer first to avoid violating the UNIQUE constraint,
                                 // then update the source offer to targetVariantId, then re-insert the target offer on the source variant (sv.id).
                                 await this.db.prepare('DELETE FROM store_offers WHERE id = ?').run(existingTargetOffer.id);
                                 await this.db.prepare('UPDATE store_offers SET variant_id = ? WHERE id = ?').run(targetVariantId, offer.id);
                                 await this.db.prepare(`
-                                    INSERT INTO store_offers (id, variant_id, store_id, raw_title, price_egp, original_price_egp, discount_pct, availability, product_url, image_url, scraped_at, is_active)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                    INSERT INTO store_offers (id, variant_id, store_id, raw_title, price_egp, original_price_egp, discount_pct, availability, product_url, image_url, scraped_at, is_active, color_en, color_ar, confidence_score)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                                 `).run(
                                     existingTargetOffer.id, sv.id, existingTargetOffer.store_id, existingTargetOffer.raw_title,
                                     existingTargetOffer.price_egp, existingTargetOffer.original_price_egp, existingTargetOffer.discount_pct,
                                     existingTargetOffer.availability, existingTargetOffer.product_url, existingTargetOffer.image_url,
-                                    existingTargetOffer.scraped_at, 0
+                                    existingTargetOffer.scraped_at, 0, existingTargetOffer.color_en, existingTargetOffer.color_ar, existingTargetOffer.confidence_score
                                 );
 
                                 mergeSnapshot.target_offers_moved.push({
@@ -501,7 +515,16 @@ class MergeService {
 
                 } else {
                     // No conflict: Move Variant and update SKU
-                    const newSku = `VAR-${targetId}-${sv.storage_gb || 0}-${sv.ram_gb || 0}-${sv.network_gen || 'unknown'}-${(sv.color_en || 'standard').toLowerCase().replace(/\s+/g, '-')}`;
+                    const skuParts = [
+                        `VAR-${targetId}`,
+                        sv.storage_gb || 0,
+                        sv.ram_gb || 0,
+                        sv.network_gen || 'unknown'
+                    ];
+                    if (sv.region_version && sv.region_version.toLowerCase() !== 'international') {
+                        skuParts.push(sv.region_version.toLowerCase().replace(/\s+/g, '-'));
+                    }
+                    const newSku = skuParts.join('-');
                     await this.db.prepare(`
                         UPDATE product_variants 
                         SET family_id = ?, sku = ? 
@@ -626,13 +649,13 @@ class MergeService {
                 for (const tom of snapshot.target_offers_moved) {
                     const od = tom.offer_data;
                     await this.db.prepare(`
-                        INSERT INTO store_offers (id, variant_id, store_id, raw_title, price_egp, original_price_egp, discount_pct, availability, product_url, image_url, scraped_at, is_active)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO store_offers (id, variant_id, store_id, raw_title, price_egp, original_price_egp, discount_pct, availability, product_url, image_url, scraped_at, is_active, color_en, color_ar, confidence_score)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     `).run(
                         od.id, tom.original_variant_id, od.store_id, od.raw_title,
                         od.price_egp, od.original_price_egp, od.discount_pct,
                         od.availability, od.product_url, od.image_url,
-                        od.scraped_at, od.is_active
+                        od.scraped_at, od.is_active, od.color_en, od.color_ar, od.confidence_score
                     );
                 }
             }

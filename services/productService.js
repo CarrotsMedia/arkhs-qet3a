@@ -220,6 +220,18 @@ class ProductService {
         if (filters.in_stock) {
             conditions.push(`so.availability = 'in_stock'`);
         }
+        if (filters.min_stores && parseInt(filters.min_stores) > 1) {
+            conditions.push(`pf.id IN (
+                SELECT pv2.family_id 
+                FROM store_offers so2 
+                JOIN product_variants pv2 ON so2.variant_id = pv2.id 
+                JOIN stores s2 ON so2.store_id = s2.id 
+                WHERE so2.is_active = 1 AND s2.is_enabled = 1
+                GROUP BY pv2.family_id 
+                HAVING COUNT(DISTINCT so2.store_id) >= ?
+            )`);
+            params.push(parseInt(filters.min_stores));
+        }
 
         const sql = this.baseProductSQL + sqlJoins + ' WHERE ' + conditions.join(' AND ') + ` ORDER BY pf.id LIMIT 3000`;
         const finalParams = [...joinParams, ...baseParams, ...params];
@@ -610,7 +622,8 @@ class ProductService {
                 pv.network_gen,
                 pv.color_en,
                 pv.color_ar,
-                pv.sku
+                pv.sku,
+                pv.confidence_score as variant_confidence
             FROM product_variants pv
             WHERE pv.family_id = ?
         `).all(productId);
@@ -624,6 +637,9 @@ class ProductService {
                 so.discount_pct,
                 so.availability,
                 so.product_url,
+                so.color_en,
+                so.color_ar,
+                so.confidence_score as merge_confidence,
                 s.name as store_name,
                 s.slug as store_slug,
                 s.logo_url as store_logo
@@ -657,7 +673,10 @@ class ProductService {
                 original_price_egp: o.original_price_egp,
                 discount_pct: o.discount_pct,
                 url: finalUrl,
-                availability: o.availability
+                availability: o.availability,
+                color_en: o.color_en,
+                color_ar: o.color_ar,
+                merge_confidence: o.merge_confidence
             };
         });
 

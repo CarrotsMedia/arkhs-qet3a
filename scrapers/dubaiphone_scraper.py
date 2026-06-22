@@ -126,6 +126,37 @@ async def parse_product_card(card) -> Optional[Product]:
         log.debug(f"Error parsing card: {e}")
         return None
 
+async def scrape_product_specs(context, url: str, sem: asyncio.Semaphore) -> dict:
+    async with sem:
+        page = await context.new_page()
+        # Abort images and font requests to save resources
+        await page.route(
+            "**/*.{png,jpg,jpeg,gif,webp,svg,woff,woff2,ttf}",
+            lambda route: route.abort()
+        )
+        try:
+            log.info(f"Navigating to product detail page: {url}")
+            await page.goto(url, wait_until="domcontentloaded", timeout=45000)
+            await asyncio.sleep(2)
+            
+            # Scrape all specs divs
+            spec_divs = await page.query_selector_all('div[class*="pa_"]')
+            specs = {}
+            for div in spec_divs:
+                h4 = await div.query_selector('h4')
+                p = await div.query_selector('p')
+                if h4 and p:
+                    key = (await h4.inner_text()).strip()
+                    val = (await p.inner_text()).strip()
+                    if key and val:
+                        specs[key] = val
+            return specs
+        except Exception as e:
+            log.warning(f"Failed to scrape specs for {url}: {e}")
+            return {}
+        finally:
+            await page.close()
+
 async def scrape_dubaiphone(max_items=100) -> list[Product]:
     async with async_playwright() as pw:
         browser = await make_browser(pw)
@@ -136,6 +167,7 @@ async def scrape_dubaiphone(max_items=100) -> list[Product]:
         page = await context.new_page()
         products = []
         seen_ids = set()
+        sem = asyncio.Semaphore(5)
 
         try:
             page_num = 1
@@ -156,11 +188,26 @@ async def scrape_dubaiphone(max_items=100) -> list[Product]:
                     log.info("No more products found on this page.")
                     break
                 
+                # Gather cards on the current page
+                page_products = []
                 for card in cards:
                     p = await parse_product_card(card)
                     if p and p.id not in seen_ids:
-                        products.append(p)
+                        page_products.append(p)
                         seen_ids.add(p.id)
+                
+                # Concurrently scrape details specs for all cards found on the page
+                if page_products:
+                    log.info(f"Fetching specifications for {len(page_products)} products concurrently with limit 5...")
+                    tasks = [
+                        scrape_product_specs(context, p.product_url, sem)
+                        for p in page_products
+                    ]
+                    specs_results = await asyncio.gather(*tasks)
+                    
+                    for p, specs in zip(page_products, specs_results):
+                        p.specs = specs
+                        products.append(p)
                 
                 log.info(f"Scraped {len(products)} products so far...")
                 
